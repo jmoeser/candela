@@ -1,0 +1,21 @@
+[Unit]
+Description=Candela web UI (FastAPI + Uvicorn)
+After=network-online.target
+Wants=network-online.target
+
+[Container]
+Image=localhost/candela:latest
+ContainerName=candela-web
+EnvironmentFile=/etc/candela/candela.env
+PublishPort=8000:8000
+
+# Run Alembic migrations before starting the web server.
+# If the DB is already up to date this is a no-op.
+Exec=sh -c "uv run alembic upgrade head && uv run uvicorn candela.main:app --host 0.0.0.0 --port 8000"
+
+[Service]
+Restart=on-failure
+RestartSec=5s
+
+[Install]
+WantedBy=multi-user.target default.target

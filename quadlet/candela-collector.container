@@ -1,0 +1,19 @@
+[Unit]
+Description=Candela data collector (inverter poller + AEMO fetcher)
+After=network-online.target candela-web.service
+Wants=network-online.target
+
+[Container]
+Image=localhost/candela:latest
+ContainerName=candela-collector
+EnvironmentFile=/etc/candela/candela.env
+
+# Override CMD: run the collector process instead of the web server.
+Exec=uv run python -m candela.collector.poller
+
+[Service]
+Restart=on-failure
+RestartSec=10s
+
+[Install]
+WantedBy=multi-user.target default.target
