@@ -2,18 +2,23 @@
 
 import logging
 from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import AsyncGenerator
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
-from fastapi.templating import Jinja2Templates
+from starlette.middleware.sessions import SessionMiddleware
 
+from candela.auth import LoginRequired
 from candela.config import get_settings
 from candela.db import Database
 
 logger = logging.getLogger(__name__)
 
 _db: Database | None = None
+
+_STATIC_DIR = Path(__file__).parent / "web" / "static"
 
 
 def get_db() -> Database:
@@ -40,6 +45,42 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
 
 app = FastAPI(title="Candela", lifespan=lifespan)
+
+_settings = get_settings()
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=_settings.secret_key,
+    max_age=14 * 24 * 3600,
+    same_site="lax",
+    https_only=False,
+)
+
+
+@app.exception_handler(LoginRequired)
+async def login_required_handler(
+    request: Request, exc: LoginRequired
+) -> RedirectResponse:
+    return RedirectResponse("/login", status_code=303)
+
+
+# Static files (CSS, JS assets)
+app.mount("/static", StaticFiles(directory=_STATIC_DIR), name="static")
+
+# ---------------------------------------------------------------------------
+# Routers
+# ---------------------------------------------------------------------------
+
+from candela.api import readings as _readings  # noqa: E402
+from candela.api import summary as _summary  # noqa: E402
+from candela.api import tariffs as _tariffs  # noqa: E402
+from candela.api import loads as _loads  # noqa: E402
+from candela.web import routes as _web  # noqa: E402
+
+app.include_router(_readings.router, prefix="/api/v1", tags=["readings"])
+app.include_router(_summary.router, prefix="/api/v1", tags=["summary"])
+app.include_router(_tariffs.router, prefix="/api/v1", tags=["tariffs"])
+app.include_router(_loads.router, prefix="/api/v1", tags=["loads"])
+app.include_router(_web.router, tags=["web"])
 
 
 @app.get("/health")

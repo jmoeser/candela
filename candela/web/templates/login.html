@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sign in — Candela</title>
+  <link rel="stylesheet" href="/static/candela.css">
+</head>
+<body class="cd-login-body">
+  <div class="cd-login-card">
+    <a href="/" class="cd-logo" style="justify-content: center; margin-bottom: 2rem;">
+      <span class="cd-logo-icon">☀</span>
+      Candela
+    </a>
+
+    {% if error %}
+    <p class="cd-login-error">{{ error }}</p>
+    {% endif %}
+
+    <form method="post" action="/login">
+      <label for="username">
+        Username
+        <input type="text" id="username" name="username" autocomplete="username" required autofocus>
+      </label>
+      <label for="password">
+        Password
+        <input type="password" id="password" name="password" autocomplete="current-password" required>
+      </label>
+      <button type="submit" style="width: 100%; margin-top: 0.5rem;">Sign in</button>
+    </form>
+  </div>
+</body>
+</html>

@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Candela{% endblock %}</title>
+  <link rel="stylesheet" href="/static/candela.css">
+  <script src="https://unpkg.com/htmx.org@1.9.12" crossorigin="anonymous"></script>
+  {% block extra_head %}{% endblock %}
+</head>
+<body>
+  <nav class="cd-sidebar">
+    <div class="cd-sidebar-header">
+      <a href="/" class="cd-logo">
+        <span class="cd-logo-icon">☀</span>
+        Candela
+      </a>
+    </div>
+    <ul class="cd-nav">
+      <li><a href="/" class="{{ 'active' if request.url.path == '/' }}">Dashboard</a></li>
+      <li><a href="/history" class="{{ 'active' if request.url.path == '/history' }}">History</a></li>
+      <li><a href="/compare" class="{{ 'active' if request.url.path == '/compare' }}">Compare</a></li>
+      <li><a href="/plans" class="{{ 'active' if request.url.path == '/plans' }}">Plans</a></li>
+      <li><a href="/loads" class="{{ 'active' if request.url.path == '/loads' }}">Loads</a></li>
+    </ul>
+    <div class="cd-nav-footer">
+      <form method="post" action="/logout" style="margin: 0;">
+        <button type="submit" class="cd-nav-logout">Sign out</button>
+      </form>
+    </div>
+  </nav>
+
+  <main class="cd-main">
+    {% block content %}{% endblock %}
+  </main>
+
+  {% block scripts %}{% endblock %}
+</body>
+</html>

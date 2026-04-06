@@ -4,19 +4,33 @@ import os
 import pytest
 from unittest.mock import patch
 
+_REQUIRED = {
+    "DATABASE_URL": "sqlite+aiosqlite:///./candela.db",
+    "SECRET_KEY": "test-secret-key",
+    "AUTH_USERNAME": "admin",
+    "AUTH_PASSWORD": "hunter2",
+    "ISOLARCLOUD_APP_KEY": "myappkey",
+    "ISOLARCLOUD_USERNAME": "user@example.com",
+    "ISOLARCLOUD_PASSWORD": "secret",
+}
+
 
 def test_config_defaults() -> None:
     """Settings with only required vars should use documented defaults."""
-    env = {
-        "DATABASE_URL": "sqlite+aiosqlite:///./candela.db",
-        "INVERTER_HOST": "192.168.1.100",
-    }
-    with patch.dict(os.environ, env, clear=True):
+    with patch.dict(os.environ, _REQUIRED, clear=True):
         from candela.config import Settings
+
         s = Settings()
     assert s.database_url == "sqlite+aiosqlite:///./candela.db"
-    assert s.inverter_host == "192.168.1.100"
-    assert s.inverter_poll_interval_seconds == 300
+    assert s.secret_key == "test-secret-key"
+    assert s.auth_username == "admin"
+    assert s.auth_password == "hunter2"
+    assert s.api_key is None
+    assert s.isolarcloud_app_key == "myappkey"
+    assert s.isolarcloud_username == "user@example.com"
+    assert s.isolarcloud_password == "secret"
+    assert s.isolarcloud_base_url == "https://augateway.isolarcloud.com"
+    assert s.isolarcloud_poll_interval_seconds == 300
     assert s.aemo_region == "QLD1"
     assert s.wholesale_adder_cents_kwh == 18.0
 
@@ -24,18 +38,18 @@ def test_config_defaults() -> None:
 def test_config_overrides() -> None:
     """Env vars override all defaults."""
     env = {
-        "DATABASE_URL": "postgresql+asyncpg://user:pass@localhost/candela",
-        "INVERTER_HOST": "10.0.0.50",
-        "INVERTER_POLL_INTERVAL_SECONDS": "60",
+        **_REQUIRED,
+        "ISOLARCLOUD_BASE_URL": "https://custom.isolarcloud.com",
+        "ISOLARCLOUD_POLL_INTERVAL_SECONDS": "60",
         "AEMO_REGION": "NSW1",
         "WHOLESALE_ADDER_CENTS_KWH": "22.5",
     }
     with patch.dict(os.environ, env, clear=True):
         from candela.config import Settings
+
         s = Settings()
-    assert s.database_url == "postgresql+asyncpg://user:pass@localhost/candela"
-    assert s.inverter_host == "10.0.0.50"
-    assert s.inverter_poll_interval_seconds == 60
+    assert s.isolarcloud_base_url == "https://custom.isolarcloud.com"
+    assert s.isolarcloud_poll_interval_seconds == 60
     assert s.aemo_region == "NSW1"
     assert s.wholesale_adder_cents_kwh == 22.5
 
@@ -43,17 +57,21 @@ def test_config_overrides() -> None:
 def test_config_missing_required_vars() -> None:
     """Missing required vars should raise a ValidationError."""
     from pydantic import ValidationError
+
     with patch.dict(os.environ, {}, clear=True):
         from candela.config import Settings
+
         with pytest.raises(ValidationError):
             Settings()
 
 
-def test_config_missing_inverter_host() -> None:
-    """DATABASE_URL present but INVERTER_HOST missing should raise."""
+def test_config_missing_isolarcloud_credentials() -> None:
+    """DATABASE_URL present but iSolarCloud credentials missing should raise."""
     from pydantic import ValidationError
+
     env = {"DATABASE_URL": "sqlite+aiosqlite:///./candela.db"}
     with patch.dict(os.environ, env, clear=True):
         from candela.config import Settings
+
         with pytest.raises(ValidationError):
             Settings()

@@ -9,8 +9,15 @@ from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
     database_url: str
-    inverter_host: str
-    inverter_poll_interval_seconds: int = 300
+    secret_key: str
+    auth_username: str
+    auth_password: str
+    api_key: str | None = None
+    isolarcloud_app_key: str
+    isolarcloud_username: str
+    isolarcloud_password: str  # stored plaintext in env, MD5'd at auth time
+    isolarcloud_base_url: str = "https://augateway.isolarcloud.com"
+    isolarcloud_poll_interval_seconds: int = 300
     aemo_region: str = "QLD1"
     wholesale_adder_cents_kwh: float = 18.0
 
