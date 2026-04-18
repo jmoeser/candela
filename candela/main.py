@@ -76,11 +76,11 @@ from candela.api import tariffs as _tariffs  # noqa: E402
 from candela.api import loads as _loads  # noqa: E402
 from candela.web import routes as _web  # noqa: E402
 
-app.include_router(_readings.router, prefix="/api/v1", tags=["readings"])
-app.include_router(_summary.router, prefix="/api/v1", tags=["summary"])
-app.include_router(_tariffs.router, prefix="/api/v1", tags=["tariffs"])
-app.include_router(_loads.router, prefix="/api/v1", tags=["loads"])
-app.include_router(_web.router, tags=["web"])
+app.include_router(_readings.router, prefix="/api/v1", tags=["readings"])  # type: ignore[has-type]
+app.include_router(_summary.router, prefix="/api/v1", tags=["summary"])  # type: ignore[has-type]
+app.include_router(_tariffs.router, prefix="/api/v1", tags=["tariffs"])  # type: ignore[has-type]
+app.include_router(_loads.router, prefix="/api/v1", tags=["loads"])  # type: ignore[has-type]
+app.include_router(_web.router, tags=["web"])  # type: ignore[has-type]
 
 
 @app.get("/health")

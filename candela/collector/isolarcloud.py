@@ -316,6 +316,7 @@ class ISolarCloudClient:
         if coros[2] is None:
             meter_data = None
 
+        assert plant_data is not None  # coros[0] is always a real coroutine
         return _parse_realtime_reading(plant_data, inverter_data, meter_data)
 
     async def fetch_interval_data(self, day: date) -> list[InverterReading]:

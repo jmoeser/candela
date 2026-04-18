@@ -13,7 +13,7 @@ import secrets
 from collections import defaultdict
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, cast
 
 from datetime import date as date_type
 
@@ -26,6 +26,7 @@ from candela.auth import require_auth
 from candela.config import get_settings
 from candela.db import Database
 from candela.main import get_db
+from candela.tariffs.strategies.base import TariffStrategy
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +35,7 @@ _protected = APIRouter()
 templates = Jinja2Templates(directory=Path(__file__).parent / "templates")
 
 
-def _fmt_ts(raw: object) -> str:
+def _fmt_ts(raw: str | datetime | None) -> str:
     """Format a DB timestamp string (or datetime) as e.g. '13 Apr, 2:30 pm'."""
     if raw is None:
         return "ongoing"
@@ -309,7 +310,7 @@ async def partial_today_summary(
         fetch_plan,
         fetch_rates,
     )
-    from candela.tariffs.models import SolarReading
+    from candela.tariffs.models import BillResult, SolarReading
     from candela.tariffs.strategies.demand import DemandStrategy
     from candela.tariffs.strategies.single_rate import SingleRateStrategy
     from candela.tariffs.strategies.tou import TOUStrategy
@@ -359,13 +360,14 @@ async def partial_today_summary(
                     for r in rows
                 ]
 
+                no_solar_bill: BillResult | None
                 if plan.plan_type == "wholesale":
                     aemo_prices = await fetch_aemo_prices(today, today, db)
                     no_solar_bill = WholesaleStrategy(
                         wholesale_adder_cents_per_kwh=Decimal("18.0")
                     ).compute(no_solar_readings, plan, rates, aemo_prices=aemo_prices)
                 else:
-                    _strategies = {
+                    _strategies: dict[str, TariffStrategy] = {
                         "single_rate": SingleRateStrategy(),
                         "tou": TOUStrategy(),
                         "demand": DemandStrategy(),
@@ -598,7 +600,7 @@ async def partial_compare_results(
                     pass
 
     # Sort by total cost ascending so cheapest is first
-    results.sort(key=lambda r: r["total_cents"])
+    results.sort(key=lambda r: cast(float, r["total_cents"]))
 
     return templates.TemplateResponse(
         request=request,

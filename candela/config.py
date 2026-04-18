@@ -32,4 +32,4 @@ def get_settings() -> "Settings":
     you need a singleton. Tests can call ``Settings()`` directly with a patched
     environment without affecting other tests.
     """
-    return Settings()
+    return Settings()  # type: ignore[call-arg]
