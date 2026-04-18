@@ -2,6 +2,15 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Before marking a task complete
+
+Always run these before reporting done:
+
+```bash
+uv run pytest
+uv run mypy candela/
+```
+
 ## Commands
 
 ```bash
