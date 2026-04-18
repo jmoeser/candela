@@ -23,14 +23,14 @@ logger = logging.getLogger(__name__)
 _EV_TYPICAL_HOURS: frozenset[int] = frozenset(range(16, 24))  # 4pm–midnight UTC
 
 # Typical hot water operation windows
-_HW_MORNING_HOURS: frozenset[int] = frozenset(range(5, 10))    # 5am–9am UTC
-_HW_AFTERNOON_HOURS: frozenset[int] = frozenset(range(14, 19)) # 2pm–6pm UTC
+_HW_MORNING_HOURS: frozenset[int] = frozenset(range(5, 10))  # 5am–9am UTC
+_HW_AFTERNOON_HOURS: frozenset[int] = frozenset(range(14, 19))  # 2pm–6pm UTC
 
 # Typical event durations in minutes
 _EV_TYPICAL_MIN_DURATION = 30
-_EV_TYPICAL_MAX_DURATION = 480   # 8 hours
+_EV_TYPICAL_MAX_DURATION = 480  # 8 hours
 _HW_TYPICAL_MIN_DURATION = 45
-_HW_TYPICAL_MAX_DURATION = 180   # 3 hours
+_HW_TYPICAL_MAX_DURATION = 180  # 3 hours
 
 
 # ---------------------------------------------------------------------------
@@ -76,7 +76,8 @@ def score_confidence(
 
     if history:
         confirmed = [
-            h for h in history
+            h
+            for h in history
             if h.load_name == event.load_name
             and h.source == "manual"
             and h.confidence is not None

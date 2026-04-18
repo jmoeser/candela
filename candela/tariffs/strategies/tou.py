@@ -9,7 +9,13 @@ from collections import defaultdict
 from decimal import Decimal
 
 from candela.collector.aemo import AemoPrice
-from candela.tariffs.models import BillResult, PeriodResult, SolarReading, TariffPlan, TariffRate
+from candela.tariffs.models import (
+    BillResult,
+    PeriodResult,
+    SolarReading,
+    TariffPlan,
+    TariffRate,
+)
 from candela.tariffs.strategies.base import (
     match_rate,
     reading_export_kwh,

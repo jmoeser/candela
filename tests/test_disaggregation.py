@@ -21,7 +21,9 @@ from candela.tariffs.models import SolarReading
 # ---------------------------------------------------------------------------
 
 
-def _reading(ts: datetime, load_w: int, grid_w: int = 0, solar_w: int = 0) -> SolarReading:
+def _reading(
+    ts: datetime, load_w: int, grid_w: int = 0, solar_w: int = 0
+) -> SolarReading:
     return SolarReading(ts=ts, solar_w=solar_w, grid_w=grid_w, load_w=load_w)
 
 
@@ -90,7 +92,10 @@ async def _make_full_db() -> Database:
 async def _insert_solar_reading(db: Database, ts: str, load_w: int) -> None:
     await db.execute(
         "INSERT INTO solar_readings (ts, solar_w, grid_w, load_w) VALUES (?, ?, ?, ?)",
-        ts, 0, load_w, load_w,
+        ts,
+        0,
+        load_w,
+        load_w,
     )
 
 
@@ -277,8 +282,8 @@ def test_reconciler_typical_ev_event_high_confidence() -> None:
 
     event = LoadEvent(
         id=None,
-        started_at=_ts(18, 0),   # 6pm — typical EV charging time
-        ended_at=_ts(20, 0),     # 2 hours — typical session
+        started_at=_ts(18, 0),  # 6pm — typical EV charging time
+        ended_at=_ts(20, 0),  # 2 hours — typical session
         load_name="ev_charging",
         avg_watts=5000,
         kwh=Decimal("10.0"),
@@ -296,7 +301,7 @@ def test_reconciler_atypical_ev_event_lower_confidence() -> None:
     unusual = LoadEvent(
         id=None,
         started_at=_ts(3, 0),
-        ended_at=_ts(3, 25),     # 25 min — below 30 min typical
+        ended_at=_ts(3, 25),  # 25 min — below 30 min typical
         load_name="ev_charging",
         avg_watts=5000,
         kwh=Decimal("2.1"),
@@ -324,7 +329,7 @@ def test_reconciler_hot_water_morning_high_confidence() -> None:
     event = LoadEvent(
         id=None,
         started_at=_ts(6, 0),
-        ended_at=_ts(8, 0),      # 2 hours
+        ended_at=_ts(8, 0),  # 2 hours
         load_name="hot_water_heatpump",
         avg_watts=1100,
         kwh=Decimal("2.2"),
@@ -362,7 +367,9 @@ def test_reconciler_history_boosts_confidence() -> None:
             source="manual",
         )
     ]
-    assert float(score_confidence(event, history=history)) > float(score_confidence(event))
+    assert float(score_confidence(event, history=history)) > float(
+        score_confidence(event)
+    )
 
 
 def test_reconciler_score_bounded() -> None:

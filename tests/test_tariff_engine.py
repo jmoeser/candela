@@ -5,8 +5,7 @@ manually (no Alembic).  The engine's ``compute_bill`` is the primary surface
 under test; seed tests verify that known plans are inserted idempotently.
 """
 
-import json
-from datetime import UTC, date, datetime
+from datetime import date
 from decimal import Decimal
 
 import pytest
@@ -223,8 +222,12 @@ async def test_compute_bill_tou() -> None:
     db = await _make_db()
     plan_id = await _insert_plan(db, plan_type="tou", supply_cents=0.0)
     await _insert_rate(
-        db, plan_id, rate_type="peak", cents_per_kwh=40.0,
-        window_start="16:00:00", window_end="21:00:00",
+        db,
+        plan_id,
+        rate_type="peak",
+        cents_per_kwh=40.0,
+        window_start="16:00:00",
+        window_end="21:00:00",
     )
     await _insert_rate(db, plan_id, rate_type="offpeak", cents_per_kwh=15.0)
 
@@ -232,14 +235,17 @@ async def test_compute_bill_tou() -> None:
     await _insert_reading(db, "2026-01-01T17:00:00Z", grid_w=1000)
     await _insert_reading(db, "2026-01-01T02:00:00Z", grid_w=1000)
 
-    result = await compute_bill(
-        plan_id, date(2026, 1, 1), date(2026, 1, 1), db
-    )
+    result = await compute_bill(plan_id, date(2026, 1, 1), date(2026, 1, 1), db)
 
     # Peak period should appear with a higher rate
     assert "peak" in result.period_breakdown
-    peak_cpkwh = result.period_breakdown["peak"].cents / result.period_breakdown["peak"].kwh
-    offpeak_cpkwh = result.period_breakdown["offpeak"].cents / result.period_breakdown["offpeak"].kwh
+    peak_cpkwh = (
+        result.period_breakdown["peak"].cents / result.period_breakdown["peak"].kwh
+    )
+    offpeak_cpkwh = (
+        result.period_breakdown["offpeak"].cents
+        / result.period_breakdown["offpeak"].kwh
+    )
     assert peak_cpkwh > offpeak_cpkwh
 
 
@@ -250,13 +256,21 @@ async def test_compute_bill_demand() -> None:
     db = await _make_db()
     plan_id = await _insert_plan(db, plan_type="demand", supply_cents=0.0)
     await _insert_rate(
-        db, plan_id, rate_type="peak", cents_per_kwh=40.0,
-        window_start="16:00:00", window_end="21:00:00",
+        db,
+        plan_id,
+        rate_type="peak",
+        cents_per_kwh=40.0,
+        window_start="16:00:00",
+        window_end="21:00:00",
     )
     await _insert_rate(db, plan_id, rate_type="offpeak", cents_per_kwh=15.0)
     await _insert_rate(
-        db, plan_id, rate_type="demand", cents_per_kw=50.0,
-        demand_window_start="16:00:00", demand_window_end="21:00:00",
+        db,
+        plan_id,
+        rate_type="demand",
+        cents_per_kw=50.0,
+        demand_window_start="16:00:00",
+        demand_window_end="21:00:00",
     )
 
     # Full 30-min block at 4000 W in peak window
@@ -264,9 +278,7 @@ async def test_compute_bill_demand() -> None:
         ts = f"2026-01-01T16:{i * 5:02d}:00Z"
         await _insert_reading(db, ts, grid_w=4000)
 
-    result = await compute_bill(
-        plan_id, date(2026, 1, 1), date(2026, 1, 1), db
-    )
+    result = await compute_bill(plan_id, date(2026, 1, 1), date(2026, 1, 1), db)
 
     assert float(result.demand_charge_cents) == pytest.approx(200.0, rel=1e-3)
 
@@ -292,9 +304,7 @@ async def test_compute_bill_wholesale() -> None:
 
     await _insert_reading(db, "2026-01-01T16:00:00Z", grid_w=1000)
 
-    result = await compute_bill(
-        plan_id, date(2026, 1, 1), date(2026, 1, 1), db
-    )
+    result = await compute_bill(plan_id, date(2026, 1, 1), date(2026, 1, 1), db)
 
     # kWh = 1000 * (5/60) / 1000 = 0.0833...
     # rate = 100/10 + 18 = 28 c/kWh
@@ -337,7 +347,9 @@ async def test_seed_creates_rates_for_each_plan() -> None:
         rate_count = await db.fetchval(
             "SELECT COUNT(*) FROM tariff_rates WHERE plan_id = ?", plan["id"]
         )
-        assert rate_count >= 1, f"Plan {plan['id']} (type={plan['plan_type']}) has no rates"
+        assert rate_count >= 1, (
+            f"Plan {plan['id']} (type={plan['plan_type']}) has no rates"
+        )
 
 
 async def test_seed_idempotent() -> None:

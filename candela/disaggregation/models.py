@@ -40,11 +40,13 @@ KNOWN_LOADS: list[dict] = [
 class LoadEvent:
     """A detected or manually-entered load event."""
 
-    id: int | None          # None before DB insert
+    id: int | None  # None before DB insert
     started_at: datetime
     ended_at: datetime | None
-    load_name: str          # 'ev_charging' | 'hot_water_heatpump' | 'hot_water_boost' | 'unknown'
+    load_name: (
+        str  # 'ev_charging' | 'hot_water_heatpump' | 'hot_water_boost' | 'unknown'
+    )
     avg_watts: int | None
     kwh: Decimal | None
     confidence: Decimal | None  # 0.000–1.000
-    source: str             # 'inferred' | 'tesla_api' | 'manual'
+    source: str  # 'inferred' | 'tesla_api' | 'manual'
