@@ -1,67 +1,64 @@
-"""Inverter polling loop.
+"""iSolarCloud polling loop.
 
 Runs as the entrypoint for the ``candela-collector`` container. Uses
-APScheduler to fire ``poll_once`` every ``INVERTER_POLL_INTERVAL_SECONDS``
+APScheduler to fire ``poll_once`` every ``ISOLARCLOUD_POLL_INTERVAL_SECONDS``
 seconds (default 300 / 5 minutes).
 
-WiNet-S2 stability note
------------------------
-Do not poll faster than 30 seconds. The built-in WiNet-S2 module on the
-SG5.0RS-ADA is known to drop offline under aggressive polling. The 300s
-default is conservative and appropriate for this application.
+iSolarCloud data note
+---------------------
+Data from iSolarCloud refreshes approximately every 5 minutes. The poller
+calls ``fetch_current_reading()`` on each tick to get the latest real-time
+snapshot and upserts it. Using ``ON CONFLICT DO UPDATE`` means re-fetching
+the same timestamp is idempotent.
+
+Poll rate
+---------
+Keep at 300 seconds. Polling more frequently than the iSolarCloud data
+refresh rate wastes API calls and risks rate limiting.
 """
 
 import asyncio
 import logging
+from datetime import datetime, timezone
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
-from candela.collector.inverter import SungrowClient
+from candela.collector.aemo import fetch_month, store_prices
+from candela.collector.isolarcloud import ISolarCloudClient, InverterReading
 from candela.config import get_settings
 from candela.db import Database
 
 logger = logging.getLogger(__name__)
 
-_CONSECUTIVE_FAILURE_THRESHOLD = 3
 
-
-async def poll_once(
-    client: SungrowClient,
-    db: Database,
-    consecutive_failures: list[int],
-) -> None:
-    """Fetch one reading and upsert it into solar_readings.
+async def poll_once(client: ISolarCloudClient, db: Database) -> None:
+    """Fetch the current real-time reading from iSolarCloud and upsert to solar_readings.
 
     Parameters
     ----------
     client:
-        Configured ``SungrowClient`` instance.
+        Configured ``ISolarCloudClient`` instance.
     db:
         Connected ``Database`` instance.
-    consecutive_failures:
-        Single-element mutable list used as a shared counter across calls
-        (avoids class state while remaining easily patchable in tests).
     """
-    reading = await client.read()
-
-    if reading is None:
-        consecutive_failures[0] += 1
-        count = consecutive_failures[0]
-        if count >= _CONSECUTIVE_FAILURE_THRESHOLD:
-            logger.error(
-                "Inverter unreachable: %d consecutive poll failures",
-                count,
-            )
-        else:
-            logger.warning(
-                "Inverter poll returned no data (consecutive failures: %d)",
-                count,
-            )
+    try:
+        reading = await client.fetch_current_reading()
+    except Exception:
+        logger.error("Failed to fetch current reading from iSolarCloud", exc_info=True)
         return
 
-    consecutive_failures[0] = 0
-    ts = reading.ts.strftime("%Y-%m-%dT%H:%M:%SZ")
+    await _upsert_reading(db, reading)
+    logger.info(
+        "Polled iSolarCloud: solar=%dW grid=%+dW load=%dW ts=%s",
+        reading.solar_w,
+        reading.grid_w,
+        reading.load_w,
+        reading.ts.strftime("%Y-%m-%dT%H:%M:%SZ"),
+    )
 
+
+async def _upsert_reading(db: Database, reading: InverterReading) -> None:
+    ts = reading.ts.strftime("%Y-%m-%dT%H:%M:%SZ")
     await db.execute(
         """
         INSERT INTO solar_readings
@@ -83,13 +80,16 @@ async def poll_once(
         reading.total_yield_kwh,
         reading.inverter_temp_c,
     )
-    logger.info(
-        "Polled inverter: solar=%dW grid=%+dW load=%dW ts=%s",
-        reading.solar_w,
-        reading.grid_w,
-        reading.load_w,
-        ts,
-    )
+
+
+async def fetch_aemo_prices(db: Database, region: str) -> None:
+    """Fetch current month's AEMO prices and upsert into aemo_trading_prices."""
+    today = datetime.now(tz=timezone.utc)
+    try:
+        prices = await fetch_month(year=today.year, month=today.month, region=region)
+        await store_prices(prices, db)
+    except Exception:
+        logger.error("Failed to fetch AEMO prices", exc_info=True)
 
 
 async def _run() -> None:
@@ -97,27 +97,38 @@ async def _run() -> None:
     db = Database(settings.database_url)
     await db.connect()
 
-    client = SungrowClient(settings.inverter_host)
-    consecutive_failures: list[int] = [0]
+    client = ISolarCloudClient(
+        app_key=settings.isolarcloud_app_key,
+        access_key=settings.isolarcloud_access_key,
+        username=settings.isolarcloud_username,
+        password=settings.isolarcloud_password,
+        base_url=settings.isolarcloud_base_url,
+    )
 
     scheduler = AsyncIOScheduler()
     scheduler.add_job(
         poll_once,
         "interval",
-        seconds=settings.inverter_poll_interval_seconds,
-        args=[client, db, consecutive_failures],
+        seconds=settings.isolarcloud_poll_interval_seconds,
+        args=[client, db],
+    )
+    scheduler.add_job(
+        fetch_aemo_prices,
+        "interval",
+        hours=24,
+        args=[db, settings.aemo_region],
+        next_run_time=datetime.now(tz=timezone.utc),  # run immediately on startup
     )
     scheduler.start()
     logger.info(
-        "Poller started (interval=%ds, host=%s)",
-        settings.inverter_poll_interval_seconds,
-        settings.inverter_host,
+        "Poller started (interval=%ds)",
+        settings.isolarcloud_poll_interval_seconds,
     )
 
     try:
         while True:
             await asyncio.sleep(3600)
-    except (KeyboardInterrupt, SystemExit):
+    except KeyboardInterrupt, SystemExit:
         pass
     finally:
         scheduler.shutdown(wait=False)

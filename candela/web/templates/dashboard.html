@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — Candela{% endblock %}
+
+{% block content %}
+<h1>Dashboard</h1>
+
+<div class="grid">
+  <!-- Current status: refreshes every 60s -->
+  <div
+    id="status-panel"
+    hx-get="/partials/status"
+    hx-trigger="load, every 60s"
+    hx-swap="innerHTML"
+  >
+    <article aria-busy="true">Loading status…</article>
+  </div>
+
+  <!-- Wholesale price strip: refreshes every 5 min -->
+  <div
+    id="wholesale-panel"
+    hx-get="/partials/wholesale-price"
+    hx-trigger="load, every 300s"
+    hx-swap="innerHTML"
+  >
+    <article aria-busy="true">Loading price…</article>
+  </div>
+</div>
+
+<!-- Today's summary -->
+<section
+  id="today-summary"
+  hx-get="/partials/today-summary"
+  hx-trigger="load, every 300s"
+  hx-swap="innerHTML"
+>
+  <article aria-busy="true">Loading today's summary…</article>
+</section>
+{% endblock %}

@@ -1,22 +1,29 @@
-"""Tests for the inverter polling loop (collector/poller.py)."""
+"""Tests for the iSolarCloud polling loop (collector/poller.py)."""
 
+import logging
 from datetime import UTC, datetime
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock
 
 import pytest
 
-from candela.collector.inverter import InverterReading
+from candela.collector.isolarcloud import InverterReading
 from candela.collector.poller import poll_once
 from candela.db import Database
 
 
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+
 def _make_reading(
     solar_w: int = 3500,
-    grid_w: int = 1200,
-    load_w: int = 4700,
+    grid_w: int = -1200,
+    load_w: int = 2300,
+    ts: datetime | None = None,
 ) -> InverterReading:
     return InverterReading(
-        ts=datetime(2026, 1, 15, 6, 0, 0, tzinfo=UTC),
+        ts=ts or datetime(2026, 1, 15, 6, 0, 0, tzinfo=UTC),
         solar_w=solar_w,
         grid_w=grid_w,
         load_w=load_w,
@@ -45,95 +52,58 @@ async def _make_db() -> Database:
     return db
 
 
-async def test_poll_once_inserts_reading_on_success() -> None:
+# ---------------------------------------------------------------------------
+# Tests
+# ---------------------------------------------------------------------------
+
+
+async def test_poll_once_inserts_reading() -> None:
     db = await _make_db()
-    failures = [0]
-    reading = _make_reading()
+    client = AsyncMock()
+    client.fetch_current_reading.return_value = _make_reading()
 
-    mock_client = AsyncMock()
-    mock_client.read.return_value = reading
+    await poll_once(client, db)
 
-    await poll_once(mock_client, db, failures)
-
-    row = await db.fetchrow("SELECT * FROM solar_readings WHERE ts = ?", "2026-01-15T06:00:00Z")
+    row = await db.fetchrow(
+        "SELECT * FROM solar_readings WHERE ts = ?", "2026-01-15T06:00:00Z"
+    )
     assert row is not None
     assert row["solar_w"] == 3500
-    assert row["grid_w"] == 1200
-    assert row["load_w"] == 4700
+    assert row["grid_w"] == -1200
+    assert row["load_w"] == 2300
     assert row["daily_yield_kwh"] == pytest.approx(18.5)
-    assert failures[0] == 0
-
     await db.disconnect()
 
 
 async def test_poll_once_upserts_on_duplicate_ts() -> None:
     db = await _make_db()
-    failures = [0]
+    client = AsyncMock()
 
-    mock_client = AsyncMock()
-    mock_client.read.return_value = _make_reading(solar_w=3500)
-    await poll_once(mock_client, db, failures)
+    client.fetch_current_reading.return_value = _make_reading(solar_w=3500)
+    await poll_once(client, db)
 
-    mock_client.read.return_value = _make_reading(solar_w=9999)
-    await poll_once(mock_client, db, failures)
+    client.fetch_current_reading.return_value = _make_reading(solar_w=9999)
+    await poll_once(client, db)
 
     rows = await db.fetch("SELECT * FROM solar_readings")
     assert len(rows) == 1
     assert rows[0]["solar_w"] == 9999
-
     await db.disconnect()
 
 
-async def test_poll_once_skips_gracefully_on_none(caplog: pytest.LogCaptureFixture) -> None:
-    db = await _make_db()
-    failures = [0]
-
-    mock_client = AsyncMock()
-    mock_client.read.return_value = None
-
-    import logging
-    with caplog.at_level(logging.WARNING, logger="candela.collector.poller"):
-        await poll_once(mock_client, db, failures)
-
-    assert failures[0] == 1
-    rows = await db.fetch("SELECT * FROM solar_readings")
-    assert rows == []
-
-    await db.disconnect()
-
-
-async def test_poll_once_logs_error_after_three_consecutive_failures(
+async def test_poll_once_handles_api_error_gracefully(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     db = await _make_db()
-    failures = [0]
+    client = AsyncMock()
+    client.fetch_current_reading.side_effect = Exception("network error")
 
-    mock_client = AsyncMock()
-    mock_client.read.return_value = None
-
-    import logging
     with caplog.at_level(logging.ERROR, logger="candela.collector.poller"):
-        await poll_once(mock_client, db, failures)
-        await poll_once(mock_client, db, failures)
-        await poll_once(mock_client, db, failures)
+        await poll_once(client, db)  # must not raise
 
-    assert failures[0] == 3
     error_records = [r for r in caplog.records if r.levelno == logging.ERROR]
-    assert len(error_records) >= 1
-    assert "consecutive" in error_records[0].message.lower()
+    assert any("network error" in r.message or r.exc_info for r in error_records)
 
-    await db.disconnect()
-
-
-async def test_poll_once_resets_failure_count_on_success() -> None:
-    db = await _make_db()
-    failures = [2]  # already had 2 failures
-
-    mock_client = AsyncMock()
-    mock_client.read.return_value = _make_reading()
-
-    await poll_once(mock_client, db, failures)
-
-    assert failures[0] == 0
-
+    rows = await db.fetch("SELECT * FROM solar_readings")
+    assert rows == []
     await db.disconnect()

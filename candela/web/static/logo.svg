@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">
+  <defs>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="1.8" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <radialGradient id="sun" cx="38%" cy="32%" r="65%">
+      <stop offset="0%" stop-color="#fefce8"/>
+      <stop offset="55%" stop-color="#fbbf24"/>
+      <stop offset="100%" stop-color="#f59e0b"/>
+    </radialGradient>
+  </defs>
+
+  <!-- Background glow at solar noon bar -->
+  <line x1="24" y1="17" x2="24" y2="6" stroke="#f59e0b" stroke-width="8" stroke-linecap="round" opacity="0.06" filter="url(#glow)"/>
+
+  <!-- Baseline arc connecting bar roots (r=8, θ=200°→340° through top) -->
+  <path d="M 16.5,21.3 A 8,8 0 0 1 31.5,21.3"
+        fill="none" stroke="#f59e0b" stroke-width="0.7" opacity="0.3"/>
+
+  <!-- 5 radial irradiance bars -->
+  <line x1="16.5" y1="21.3" x2="13.0" y2="20.2" stroke="#f59e0b" stroke-width="2.2" stroke-linecap="round" opacity="0.6"/>
+  <line x1="19.4" y1="17.5" x2="15.3" y2="14.4" stroke="#f59e0b" stroke-width="2.2" stroke-linecap="round" opacity="0.8"/>
+  <line x1="24"   y1="16"   x2="24"   y2="6"    stroke="#fbbf24" stroke-width="2.5" stroke-linecap="round" filter="url(#glow)"/>
+  <line x1="28.6" y1="17.5" x2="32.7" y2="14.4" stroke="#f59e0b" stroke-width="2.2" stroke-linecap="round" opacity="0.8"/>
+  <line x1="31.5" y1="21.3" x2="35.0" y2="20.2" stroke="#f59e0b" stroke-width="2.2" stroke-linecap="round" opacity="0.6"/>
+
+  <!-- Centre sun -->
+  <circle cx="24" cy="24" r="5.5" fill="url(#sun)" filter="url(#glow)"/>
+  <circle cx="22.5" cy="22.5" r="2" fill="#fefce8" opacity="0.5"/>
+</svg>

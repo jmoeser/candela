@@ -1,0 +1,297 @@
+{% extends "base.html" %}
+{% block title %}Load Events — Candela{% endblock %}
+
+{% block extra_head %}
+<style>
+/* ── Loads page ── */
+
+/* Month header */
+.ld-month-hd {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 1rem;
+}
+
+.ld-month-hd h2 { margin-bottom: 0; }
+
+.ld-month-plan {
+  font-size: 0.78rem;
+  color: var(--text-tertiary);
+  font-weight: 400;
+  font-family: 'DM Sans', sans-serif;
+}
+
+/* Summary cards */
+.ld-summary-card {
+  padding: 16px 18px !important;
+  gap: 0 !important;
+}
+
+.ld-card-label {
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-tertiary);
+  margin-bottom: 6px;
+}
+
+.ld-card-cost {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-size: 2rem;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  color: var(--text-primary);
+  line-height: 1;
+  margin-bottom: 6px;
+}
+
+.ld-card-cost-na {
+  font-size: 1.1rem;
+  color: var(--text-tertiary);
+  font-weight: 400;
+}
+
+.ld-card-meta {
+  font-size: 0.78rem;
+  color: var(--text-tertiary);
+  margin: 0;
+}
+
+/* Pagination bar */
+.ld-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+  background: var(--surface-1);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  margin-bottom: 14px;
+  font-size: 0.82rem;
+}
+
+.ld-pagination-meta { color: var(--text-tertiary); }
+.ld-pagination-meta strong { color: var(--text-secondary); }
+
+.ld-pagination-nav {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ld-pagination-nav a {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 11px;
+  background: var(--surface-2);
+  border: 1px solid var(--border-dim);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+  font-weight: 500;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.ld-pagination-nav a:hover {
+  background: var(--surface-3);
+  border-color: var(--border-mid);
+  color: var(--text-primary);
+}
+
+.ld-pagination-page {
+  font-size: 0.75rem;
+  color: var(--text-tertiary);
+  padding: 0 4px;
+}
+
+/* Table wrapper — outer clips corners, inner scrolls */
+.ld-table-outer {
+  background: var(--surface-1);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
+  margin-bottom: 2rem;
+}
+
+.ld-table-scroll { overflow-x: auto; }
+
+.ld-table-scroll table { min-width: 680px; }
+
+/* Add event section */
+.ld-add-section {
+  background: var(--surface-1);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: 24px 28px;
+  box-shadow: var(--shadow-card);
+}
+
+.ld-add-section > h2 {
+  font-size: 0.95rem;
+  color: var(--text-secondary);
+  margin-bottom: 1.25rem;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border-dim);
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<h1>Load Events</h1>
+
+{% if current_plan_name %}
+<section>
+  <div class="ld-month-hd">
+    <h2>{{ month_label }}</h2>
+    <span class="ld-month-plan">{{ current_plan_name }}</span>
+  </div>
+  {% if load_summary %}
+  <div class="grid">
+    {% for item in load_summary %}
+    <article class="ld-summary-card">
+      <div class="ld-card-label">{{ item.load_name.replace("_", " ") | title }}</div>
+      <div class="ld-card-cost">
+        {% if item.cost_cents is not none %}
+        ${{ "%.2f"|format(item.cost_cents / 100) }}
+        {% else %}
+        <span class="ld-card-cost-na">N/A</span>
+        {% endif %}
+      </div>
+      <p class="ld-card-meta">{{ item.event_count }} event{{ "s" if item.event_count != 1 else "" }} · {{ "%.1f"|format(item.kwh) }} kWh</p>
+    </article>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p><small>No high-confidence events with energy data this month.</small></p>
+  {% endif %}
+</section>
+{% else %}
+<p><small>No current plan set. <a href="/plans">Set a current plan</a> to see monthly load costs.</small></p>
+{% endif %}
+
+<div class="ld-pagination">
+  <span class="ld-pagination-meta">
+    <strong>{{ total }}</strong> event{{ "s" if total != 1 else "" }} total
+  </span>
+  <div class="ld-pagination-nav">
+    {% if page > 1 %}
+    <a href="/loads?page={{ page - 1 }}">← Prev</a>
+    {% endif %}
+    <span class="ld-pagination-page">{{ page }} / {{ total_pages }}</span>
+    {% if page < total_pages %}
+    <a href="/loads?page={{ page + 1 }}">Next →</a>
+    {% endif %}
+  </div>
+</div>
+
+{% if events %}
+<div class="ld-table-outer">
+  <div class="ld-table-scroll">
+    <table>
+      <thead>
+        <tr>
+          <th>Load</th>
+          <th>Start</th>
+          <th>End</th>
+          <th>kWh</th>
+          <th>Avg W</th>
+          <th>Confidence</th>
+          <th>Source</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for event in events %}
+        <tr id="event-{{ event.id }}">
+          <td>{{ event.load_name.replace("_", " ") | title }}</td>
+          <td style="white-space:nowrap">{{ event.started_at | fmt_ts }}</td>
+          <td style="white-space:nowrap">{{ event.ended_at | fmt_ts if event.ended_at else "ongoing" }}</td>
+          <td>{{ "%.2f"|format(event.kwh | float) if event.kwh else "—" }}</td>
+          <td>{{ "{:,}".format(event.avg_watts | int) if event.avg_watts else "—" }}</td>
+          <td>
+            {% if event.confidence is not none %}
+            <progress value="{{ event.confidence }}" max="1"
+              title="{{ "%.0f"|format(event.confidence * 100) }}%"></progress>
+            {% else %}
+            —
+            {% endif %}
+          </td>
+          <td>{{ event.source }}</td>
+          <td>
+            {% if event.source == "inferred" %}
+            <button
+              class="outline"
+              hx-patch="/api/v1/loads/{{ event.id }}"
+              hx-vals='{"source": "manual", "confidence": 1.0}'
+              hx-headers='{"Content-Type": "application/json"}'
+              hx-target="#event-{{ event.id }}"
+              hx-swap="outerHTML"
+              title="Confirm this event"
+            >✓</button>
+            <button
+              class="outline secondary"
+              hx-patch="/api/v1/loads/{{ event.id }}"
+              hx-vals='{"source": "manual", "confidence": 0.0}'
+              hx-headers='{"Content-Type": "application/json"}'
+              hx-target="#event-{{ event.id }}"
+              hx-swap="outerHTML"
+              title="Reject this event"
+            >✗</button>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% else %}
+<p>No load events detected yet.</p>
+{% endif %}
+
+<div class="ld-add-section">
+  <h2>Add manual event</h2>
+
+  <form
+    hx-post="/api/v1/loads"
+    hx-swap="none"
+    hx-on::after-request="if(event.detail.successful) { this.reset(); location.reload(); }"
+  >
+    <div class="grid">
+      <label>
+        Load name
+        <select name="load_name" required>
+          <option value="ev_charging">EV Charging</option>
+          <option value="hot_water_heatpump">Hot Water Heat Pump</option>
+          <option value="hot_water_boost">Hot Water Boost</option>
+          <option value="unknown">Unknown</option>
+        </select>
+      </label>
+      <label>
+        Start
+        <input type="datetime-local" name="started_at" required>
+      </label>
+      <label>
+        End
+        <input type="datetime-local" name="ended_at">
+      </label>
+    </div>
+    <div class="grid">
+      <label>
+        Average watts
+        <input type="number" name="avg_watts" min="0">
+      </label>
+      <label>
+        kWh
+        <input type="number" name="kwh" step="0.001" min="0">
+      </label>
+    </div>
+    <div>
+      <button type="submit">Add event</button>
+    </div>
+  </form>
+</div>
+{% endblock %}

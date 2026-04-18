@@ -1,0 +1,31 @@
+{% if reading %}
+<article>
+  <header>
+    <strong>Live Status</strong>
+    <small>{{ reading.ts.strftime("%H:%M") }} AEST</small>
+  </header>
+  <div class="grid">
+    <div class="stat">
+      <span class="stat-value solar">{{ "{:,}".format(reading.solar_w | int) }}</span>
+      <span class="stat-label">Solar W</span>
+    </div>
+    <div class="stat">
+      {% if reading.grid_w >= 0 %}
+      <span class="stat-value importing">{{ "{:,}".format(reading.grid_w | int) }}</span>
+      <span class="stat-label">Importing W</span>
+      {% else %}
+      <span class="stat-value exporting">{{ "{:,}".format((-reading.grid_w) | int) }}</span>
+      <span class="stat-label">Exporting W</span>
+      {% endif %}
+    </div>
+    <div class="stat">
+      <span class="stat-value load">{{ "{:,}".format(reading.load_w | int) }}</span>
+      <span class="stat-label">Load W</span>
+    </div>
+  </div>
+</article>
+{% else %}
+<article>
+  <p>No readings yet — waiting for first inverter poll.</p>
+</article>
+{% endif %}

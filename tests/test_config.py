@@ -10,6 +10,7 @@ _REQUIRED = {
     "AUTH_USERNAME": "admin",
     "AUTH_PASSWORD": "hunter2",
     "ISOLARCLOUD_APP_KEY": "myappkey",
+    "ISOLARCLOUD_ACCESS_KEY": "myaccesskey",
     "ISOLARCLOUD_USERNAME": "user@example.com",
     "ISOLARCLOUD_PASSWORD": "secret",
 }
@@ -20,7 +21,7 @@ def test_config_defaults() -> None:
     with patch.dict(os.environ, _REQUIRED, clear=True):
         from candela.config import Settings
 
-        s = Settings()
+        s = Settings(_env_file=None)
     assert s.database_url == "sqlite+aiosqlite:///./candela.db"
     assert s.secret_key == "test-secret-key"
     assert s.auth_username == "admin"
@@ -47,7 +48,7 @@ def test_config_overrides() -> None:
     with patch.dict(os.environ, env, clear=True):
         from candela.config import Settings
 
-        s = Settings()
+        s = Settings(_env_file=None)
     assert s.isolarcloud_base_url == "https://custom.isolarcloud.com"
     assert s.isolarcloud_poll_interval_seconds == 60
     assert s.aemo_region == "NSW1"
@@ -62,7 +63,7 @@ def test_config_missing_required_vars() -> None:
         from candela.config import Settings
 
         with pytest.raises(ValidationError):
-            Settings()
+            Settings(_env_file=None)
 
 
 def test_config_missing_isolarcloud_credentials() -> None:
@@ -74,4 +75,4 @@ def test_config_missing_isolarcloud_credentials() -> None:
         from candela.config import Settings
 
         with pytest.raises(ValidationError):
-            Settings()
+            Settings(_env_file=None)

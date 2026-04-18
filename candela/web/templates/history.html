@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}History — Candela{% endblock %}
+
+{% block extra_head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+{% endblock %}
+
+{% block content %}
+<h1>History</h1>
+
+<form
+  id="history-form"
+  hx-get="/partials/daily-chart"
+  hx-target="#chart-section"
+  hx-trigger="submit, load"
+  hx-swap="innerHTML"
+>
+  <div class="grid">
+    <label>
+      From
+      <input type="date" name="from" value="{{ today_minus_30 }}" required>
+    </label>
+    <label>
+      To
+      <input type="date" name="to" value="{{ today }}" required>
+    </label>
+    <div style="align-self: end">
+      <button type="submit">Update</button>
+    </div>
+  </div>
+</form>
+
+<section id="chart-section">
+  <article aria-busy="true">Loading chart…</article>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  // Supply today's date as default values
+  (function () {
+    const today = new Date().toISOString().slice(0, 10);
+    const minus30 = new Date(Date.now() - 29 * 86400000).toISOString().slice(0, 10);
+    document.querySelector('input[name="to"]').value = today;
+    document.querySelector('input[name="from"]').value = minus30;
+  })();
+</script>
+{% endblock %}

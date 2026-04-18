@@ -15,6 +15,8 @@ from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from typing import Annotated
 
+from datetime import date as date_type
+
 from fastapi import APIRouter, Depends, Form, Query
 from fastapi.requests import Request
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -30,6 +32,19 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 _protected = APIRouter()
 templates = Jinja2Templates(directory=Path(__file__).parent / "templates")
+
+
+def _fmt_ts(raw: object) -> str:
+    """Format a DB timestamp string (or datetime) as e.g. '13 Apr, 2:30 pm'."""
+    if raw is None:
+        return "ongoing"
+    if isinstance(raw, str):
+        raw = _parse_ts(raw)
+    time_part = raw.strftime("%I:%M %p").lstrip("0").lower()
+    return f"{raw.day} {raw.strftime('%b')}, {time_part}"
+
+
+templates.env.filters["fmt_ts"] = _fmt_ts
 
 _INTERVAL_H = 5 / 60
 
@@ -117,14 +132,52 @@ async def compare(
     )
 
 
+@_protected.post("/plans/{plan_id}/set-current")
+async def set_plan_current(
+    plan_id: int,
+    request: Request,
+    db: Annotated[Database, Depends(get_db)],
+    active_from: Annotated[date_type, Form()],
+) -> RedirectResponse:
+    """Handle the 'Set as current' form on the plans page."""
+    prev_day = (active_from - timedelta(days=1)).isoformat()
+    await db.execute(
+        "UPDATE current_plan_periods SET active_to = ? WHERE active_to IS NULL",
+        prev_day,
+    )
+    await db.execute(
+        "INSERT INTO current_plan_periods (plan_id, active_from, active_to) VALUES (?, ?, NULL)",
+        plan_id,
+        active_from.isoformat(),
+    )
+    return RedirectResponse("/plans", status_code=303)
+
+
 @_protected.get("/plans", response_class=HTMLResponse)
 async def plans_page(
     request: Request, db: Annotated[Database, Depends(get_db)]
 ) -> HTMLResponse:
     """Plan management: list and create/edit forms."""
     plans = await db.fetch("SELECT * FROM tariff_plans ORDER BY id")
+    current_period = await db.fetchrow(
+        """
+        SELECT cpp.plan_id, tp.name AS plan_name, cpp.active_from
+        FROM current_plan_periods cpp
+        JOIN tariff_plans tp ON tp.id = cpp.plan_id
+        WHERE cpp.active_to IS NULL
+        ORDER BY cpp.active_from DESC
+        LIMIT 1
+        """
+    )
+    today = date.today().isoformat()
     return templates.TemplateResponse(
-        request=request, name="plans.html", context={"plans": list(plans)}
+        request=request,
+        name="plans.html",
+        context={
+            "plans": list(plans),
+            "current_period": dict(current_period) if current_period else None,
+            "today": today,
+        },
     )
 
 
@@ -135,6 +188,8 @@ async def loads_page(
     page: int = 1,
 ) -> HTMLResponse:
     """Load events page: paginated table with confirm/reject actions."""
+    from candela.tariffs.load_costs import LoadEvent, load_costs_for_plan
+
     per_page = 50
     offset = (page - 1) * per_page
     events = await db.fetch(
@@ -143,6 +198,62 @@ async def loads_page(
         offset,
     )
     total = await db.fetchval("SELECT COUNT(*) FROM load_events") or 0
+
+    # Monthly load cost summary using the currently active plan
+    current_period = await db.fetchrow(
+        """
+        SELECT cpp.plan_id, tp.name AS plan_name
+        FROM current_plan_periods cpp
+        JOIN tariff_plans tp ON tp.id = cpp.plan_id
+        WHERE cpp.active_to IS NULL
+        ORDER BY cpp.active_from DESC
+        LIMIT 1
+        """
+    )
+
+    load_summary = None
+    current_plan_name = None
+    month_label = date.today().strftime("%B %Y")
+
+    if current_period:
+        current_plan_name = str(current_period["plan_name"])
+        plan_id = int(current_period["plan_id"])
+
+        today = date.today()
+        month_from = today.replace(day=1)
+        ts_from = datetime(month_from.year, month_from.month, 1, tzinfo=UTC).isoformat()
+        ts_to = datetime(
+            today.year, today.month, today.day, 23, 59, 59, tzinfo=UTC
+        ).isoformat()
+
+        load_rows = await db.fetch(
+            """
+            SELECT load_name, started_at, ended_at, kwh
+            FROM load_events
+            WHERE started_at >= ? AND started_at <= ?
+              AND confidence >= 0.7
+              AND kwh IS NOT NULL
+              AND ended_at IS NOT NULL
+            ORDER BY started_at
+            """,
+            ts_from,
+            ts_to,
+        )
+
+        if load_rows:
+            qualifying = [
+                LoadEvent(
+                    load_name=str(r["load_name"]),
+                    started_at=_parse_ts(str(r["started_at"])),
+                    ended_at=_parse_ts(str(r["ended_at"])),
+                    kwh=float(r["kwh"]),
+                )
+                for r in load_rows
+            ]
+            load_summary = await load_costs_for_plan(
+                qualifying, plan_id, month_from, today, db
+            )
+
     return templates.TemplateResponse(
         request=request,
         name="loads.html",
@@ -152,6 +263,9 @@ async def loads_page(
             "page": page,
             "per_page": per_page,
             "total_pages": max(1, (int(total) + per_page - 1) // per_page),
+            "load_summary": load_summary,
+            "current_plan_name": current_plan_name,
+            "month_label": month_label,
         },
     )
 
@@ -186,20 +300,97 @@ async def partial_status(
 async def partial_today_summary(
     request: Request, db: Annotated[Database, Depends(get_db)]
 ) -> HTMLResponse:
-    """Today's aggregate kWh summary."""
+    """Today's aggregate kWh summary, cost, and solar savings."""
+    from decimal import Decimal
+
+    from candela.tariffs.engine import (
+        compute_bill,
+        fetch_aemo_prices,
+        fetch_plan,
+        fetch_rates,
+    )
+    from candela.tariffs.models import SolarReading
+    from candela.tariffs.strategies.demand import DemandStrategy
+    from candela.tariffs.strategies.single_rate import SingleRateStrategy
+    from candela.tariffs.strategies.tou import TOUStrategy
+    from candela.tariffs.strategies.wholesale import WholesaleStrategy
+
     today = date.today()
     ts_from = datetime(today.year, today.month, today.day, tzinfo=UTC).isoformat()
     ts_to = datetime(
         today.year, today.month, today.day, 23, 59, 59, tzinfo=UTC
     ).isoformat()
     rows = await db.fetch(
-        "SELECT solar_w, grid_w FROM solar_readings WHERE ts >= ? AND ts <= ?",
+        "SELECT ts, solar_w, grid_w, load_w FROM solar_readings WHERE ts >= ? AND ts <= ?",
         ts_from,
         ts_to,
     )
     solar_kwh = sum(int(r["solar_w"]) * _INTERVAL_H / 1000 for r in rows)
     import_kwh = sum(max(int(r["grid_w"]), 0) * _INTERVAL_H / 1000 for r in rows)
     export_kwh = sum(max(-int(r["grid_w"]), 0) * _INTERVAL_H / 1000 for r in rows)
+
+    cost_data = None
+    if rows:
+        current_period = await db.fetchrow(
+            """
+            SELECT cpp.plan_id, tp.name AS plan_name, tp.plan_type
+            FROM current_plan_periods cpp
+            JOIN tariff_plans tp ON tp.id = cpp.plan_id
+            WHERE cpp.active_to IS NULL
+            ORDER BY cpp.active_from DESC
+            LIMIT 1
+            """
+        )
+        if current_period:
+            plan_id = int(current_period["plan_id"])
+            try:
+                bill = await compute_bill(plan_id, today, today, db)
+                plan = await fetch_plan(plan_id, db)
+                rates = await fetch_rates(plan_id, db)
+
+                # Synthetic readings where solar=0 and all load comes from the grid
+                no_solar_readings = [
+                    SolarReading(
+                        ts=_parse_ts(str(r["ts"])),
+                        solar_w=0,
+                        grid_w=max(int(r["load_w"]), 0),
+                        load_w=int(r["load_w"]),
+                    )
+                    for r in rows
+                ]
+
+                if plan.plan_type == "wholesale":
+                    aemo_prices = await fetch_aemo_prices(today, today, db)
+                    no_solar_bill = WholesaleStrategy(
+                        wholesale_adder_cents_per_kwh=Decimal("18.0")
+                    ).compute(no_solar_readings, plan, rates, aemo_prices=aemo_prices)
+                else:
+                    _strategies = {
+                        "single_rate": SingleRateStrategy(),
+                        "tou": TOUStrategy(),
+                        "demand": DemandStrategy(),
+                    }
+                    strategy = _strategies.get(plan.plan_type)
+                    no_solar_bill = (
+                        strategy.compute(no_solar_readings, plan, rates)
+                        if strategy
+                        else None
+                    )
+
+                savings_dollars = None
+                if no_solar_bill is not None:
+                    savings_dollars = (
+                        float(no_solar_bill.total_cents - bill.total_cents) / 100
+                    )
+
+                cost_data = {
+                    "plan_name": str(current_period["plan_name"]),
+                    "total_dollars": float(bill.total_cents) / 100,
+                    "solar_savings_dollars": savings_dollars,
+                }
+            except Exception:
+                logger.warning("Failed to compute today's cost", exc_info=True)
+
     return templates.TemplateResponse(
         request=request,
         name="partials/today_summary.html",
@@ -207,6 +398,7 @@ async def partial_today_summary(
             "solar_kwh": round(solar_kwh, 2),
             "import_kwh": round(import_kwh, 2),
             "export_kwh": round(export_kwh, 2),
+            "cost_data": cost_data,
         },
     )
 
@@ -328,6 +520,7 @@ async def partial_compare_results(
 ) -> HTMLResponse:
     """Side-by-side cost cards for selected plans."""
     from candela.tariffs.engine import compute_bill
+    from candela.tariffs.load_costs import LoadEvent, load_costs_for_plan
 
     if from_ is None:
         today = date.today()
@@ -335,7 +528,35 @@ async def partial_compare_results(
     if to is None:
         to = date.today()
 
+    # Fetch high-confidence load events in the date range (used for all plans)
+    ts_from = datetime(from_.year, from_.month, from_.day, tzinfo=UTC).isoformat()
+    ts_to = datetime(to.year, to.month, to.day, 23, 59, 59, tzinfo=UTC).isoformat()
+    load_rows = await db.fetch(
+        """
+        SELECT load_name, started_at, ended_at, kwh
+        FROM load_events
+        WHERE started_at >= ? AND started_at <= ?
+          AND confidence >= 0.7
+          AND kwh IS NOT NULL
+          AND ended_at IS NOT NULL
+        ORDER BY started_at
+        """,
+        ts_from,
+        ts_to,
+    )
+    qualifying_events = [
+        LoadEvent(
+            load_name=str(r["load_name"]),
+            started_at=_parse_ts(str(r["started_at"])),
+            ended_at=_parse_ts(str(r["ended_at"])),
+            kwh=float(r["kwh"]),
+        )
+        for r in load_rows
+    ]
+
     results = []
+    load_costs_by_plan: dict[int, list] = {}
+
     if plan_ids:
         ids = [int(x.strip()) for x in plan_ids.split(",") if x.strip()]
         for plan_id in ids:
@@ -368,13 +589,26 @@ async def partial_compare_results(
                 }
             )
 
+            if qualifying_events:
+                try:
+                    load_costs_by_plan[plan_id] = await load_costs_for_plan(
+                        qualifying_events, plan_id, from_, to, db
+                    )
+                except ValueError:
+                    pass
+
     # Sort by total cost ascending so cheapest is first
     results.sort(key=lambda r: r["total_cents"])
 
     return templates.TemplateResponse(
         request=request,
         name="partials/compare_results.html",
-        context={"results": results, "from_": from_, "to": to},
+        context={
+            "results": results,
+            "from_": from_,
+            "to": to,
+            "load_costs_by_plan": load_costs_by_plan,
+        },
     )
 
 

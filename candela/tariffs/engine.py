@@ -86,9 +86,7 @@ async def compute_bill(
 
 
 async def _fetch_plan(plan_id: int, db: Database) -> TariffPlan:
-    row = await db.fetchrow(
-        "SELECT * FROM tariff_plans WHERE id = ?", plan_id
-    )
+    row = await db.fetchrow("SELECT * FROM tariff_plans WHERE id = ?", plan_id)
     if row is None:
         raise ValueError(f"Tariff plan {plan_id} not found")
 
@@ -105,9 +103,7 @@ async def _fetch_plan(plan_id: int, db: Database) -> TariffPlan:
             else None
         ),
         valid_to=(
-            date.fromisoformat(str(row["valid_to"]))
-            if row["valid_to"]
-            else None
+            date.fromisoformat(str(row["valid_to"])) if row["valid_to"] else None
         ),
         notes=str(row["notes"]) if row["notes"] else None,
     )
@@ -126,16 +122,18 @@ def _row_to_rate(row: object) -> TariffRate:
         plan_id=int(row["plan_id"]),
         rate_type=str(row["rate_type"]),
         cents_per_kwh=(
-            Decimal(str(row["cents_per_kwh"])) if row["cents_per_kwh"] is not None else None
+            Decimal(str(row["cents_per_kwh"]))
+            if row["cents_per_kwh"] is not None
+            else None
         ),
         cents_per_kw=(
-            Decimal(str(row["cents_per_kw"])) if row["cents_per_kw"] is not None else None
+            Decimal(str(row["cents_per_kw"]))
+            if row["cents_per_kw"] is not None
+            else None
         ),
         window_start=_parse_time(row["window_start"]),
         window_end=_parse_time(row["window_end"]),
-        days_of_week=(
-            json.loads(row["days_of_week"]) if row["days_of_week"] else None
-        ),
+        days_of_week=(json.loads(row["days_of_week"]) if row["days_of_week"] else None),
         months=json.loads(row["months"]) if row["months"] else None,
         demand_window_start=_parse_time(row["demand_window_start"]),
         demand_window_end=_parse_time(row["demand_window_end"]),
@@ -146,8 +144,12 @@ async def _fetch_readings(
     date_from: date, date_to: date, db: Database
 ) -> list[SolarReading]:
     # Use ISO8601 string bounds that cover the full days in UTC
-    ts_from = datetime(date_from.year, date_from.month, date_from.day, tzinfo=UTC).isoformat()
-    ts_to = datetime(date_to.year, date_to.month, date_to.day, 23, 59, 59, tzinfo=UTC).isoformat()
+    ts_from = datetime(
+        date_from.year, date_from.month, date_from.day, tzinfo=UTC
+    ).isoformat()
+    ts_to = datetime(
+        date_to.year, date_to.month, date_to.day, 23, 59, 59, tzinfo=UTC
+    ).isoformat()
 
     rows = await db.fetch(
         "SELECT * FROM solar_readings WHERE ts >= ? AND ts <= ? ORDER BY ts",
@@ -171,9 +173,15 @@ def _row_to_reading(row: object) -> SolarReading:
         solar_w=int(row["solar_w"]),
         grid_w=int(row["grid_w"]),
         load_w=int(row["load_w"]),
-        daily_yield_kwh=float(row["daily_yield_kwh"]) if row["daily_yield_kwh"] is not None else None,
-        total_yield_kwh=float(row["total_yield_kwh"]) if row["total_yield_kwh"] is not None else None,
-        inverter_temp_c=float(row["inverter_temp_c"]) if row["inverter_temp_c"] is not None else None,
+        daily_yield_kwh=float(row["daily_yield_kwh"])
+        if row["daily_yield_kwh"] is not None
+        else None,
+        total_yield_kwh=float(row["total_yield_kwh"])
+        if row["total_yield_kwh"] is not None
+        else None,
+        inverter_temp_c=float(row["inverter_temp_c"])
+        if row["inverter_temp_c"] is not None
+        else None,
     )
 
 
@@ -182,9 +190,13 @@ async def _fetch_aemo_prices(
 ) -> list[AemoPrice]:
     from datetime import timedelta
 
-    ts_from = datetime(date_from.year, date_from.month, date_from.day, tzinfo=UTC).isoformat()
+    ts_from = datetime(
+        date_from.year, date_from.month, date_from.day, tzinfo=UTC
+    ).isoformat()
     # Extend to_date by 1 day to capture the final block ending after midnight
-    ts_to_dt = datetime(date_to.year, date_to.month, date_to.day, tzinfo=UTC) + timedelta(days=1)
+    ts_to_dt = datetime(
+        date_to.year, date_to.month, date_to.day, tzinfo=UTC
+    ) + timedelta(days=1)
     ts_to = ts_to_dt.isoformat()
 
     rows = await db.fetch(
@@ -213,6 +225,28 @@ def _row_to_aemo_price(row: object) -> AemoPrice:
         rrp_per_mwh=float(row["rrp_per_mwh"]),
         region=str(row["region"]),
     )
+
+
+# ---------------------------------------------------------------------------
+# Public helpers (thin wrappers around private fetch functions)
+# ---------------------------------------------------------------------------
+
+
+async def fetch_plan(plan_id: int, db: Database) -> TariffPlan:
+    """Fetch a TariffPlan from the database. Raises ValueError if not found."""
+    return await _fetch_plan(plan_id, db)
+
+
+async def fetch_rates(plan_id: int, db: Database) -> list[TariffRate]:
+    """Fetch all TariffRate rows for *plan_id*."""
+    return await _fetch_rates(plan_id, db)
+
+
+async def fetch_aemo_prices(
+    date_from: date, date_to: date, db: Database
+) -> list[AemoPrice]:
+    """Fetch AEMO trading prices for the given date range."""
+    return await _fetch_aemo_prices(date_from, date_to, db)
 
 
 def _parse_time(value: object) -> time | None:

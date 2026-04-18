@@ -13,6 +13,7 @@ os.environ.setdefault("SECRET_KEY", "test-secret-key-not-for-production")
 os.environ.setdefault("AUTH_USERNAME", "testuser")
 os.environ.setdefault("AUTH_PASSWORD", "testpass")
 os.environ.setdefault("ISOLARCLOUD_APP_KEY", "test-key")
+os.environ.setdefault("ISOLARCLOUD_ACCESS_KEY", "test-access-key")
 os.environ.setdefault("ISOLARCLOUD_USERNAME", "test@example.com")
 os.environ.setdefault("ISOLARCLOUD_PASSWORD", "test-password")
 
@@ -86,6 +87,14 @@ _CREATE_TABLES: list[str] = [
         kwh NUMERIC,
         confidence NUMERIC,
         source TEXT NOT NULL
+    )
+    """,
+    """
+    CREATE TABLE current_plan_periods (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        plan_id INTEGER NOT NULL REFERENCES tariff_plans(id),
+        active_from TEXT NOT NULL,
+        active_to TEXT
     )
     """,
 ]

@@ -1,0 +1,22 @@
+{% if price %}
+<article class="price-{{ price.colour }}">
+  <header><strong>Wholesale Price (QLD1)</strong></header>
+  <div class="grid">
+    <div class="stat">
+      <span class="stat-value">{{ price.cents_kwh }} c/kWh</span>
+      <span class="stat-label">
+        {% if price.colour == "green" %}Cheap{% elif price.colour == "amber" %}Moderate{% else %}High{% endif %}
+      </span>
+    </div>
+    <div class="stat">
+      <span class="stat-value">${{ "%.2f"|format(price.rrp_per_mwh / 1000) }}/kWh</span>
+      <span class="stat-label">AEMO RRP</span>
+    </div>
+  </div>
+  <footer><small>{{ price.interval_start.strftime("%H:%M") }} interval</small></footer>
+</article>
+{% else %}
+<article>
+  <p>No AEMO price data available yet.</p>
+</article>
+{% endif %}

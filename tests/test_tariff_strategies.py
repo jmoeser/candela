@@ -19,7 +19,6 @@ import pytest
 
 from candela.collector.aemo import AemoPrice
 from candela.tariffs.models import (
-    BillResult,
     SolarReading,
     TariffPlan,
     TariffRate,
@@ -32,7 +31,9 @@ from candela.tariffs.models import (
 _INTERVAL_HOURS = 5 / 60  # 5-minute readings
 
 
-def _reading(ts: datetime, grid_w: int, solar_w: int = 0, load_w: int = 0) -> SolarReading:
+def _reading(
+    ts: datetime, grid_w: int, solar_w: int = 0, load_w: int = 0
+) -> SolarReading:
     return SolarReading(ts=ts, solar_w=solar_w, grid_w=grid_w, load_w=load_w)
 
 
@@ -66,7 +67,9 @@ def _rate(
         id=1,
         plan_id=1,
         rate_type=rate_type,
-        cents_per_kwh=Decimal(str(cents_per_kwh)) if cents_per_kwh is not None else None,
+        cents_per_kwh=Decimal(str(cents_per_kwh))
+        if cents_per_kwh is not None
+        else None,
         cents_per_kw=Decimal(str(cents_per_kw)) if cents_per_kw is not None else None,
         window_start=window_start,
         window_end=window_end,
@@ -98,15 +101,26 @@ def test_single_rate_import_only() -> None:
 
     result = SingleRateStrategy().compute(readings, plan, rates)
 
-    expected_import_kwh = Decimal("1000") * Decimal("12") * Decimal(str(_INTERVAL_HOURS)) / Decimal("1000")
+    expected_import_kwh = (
+        Decimal("1000")
+        * Decimal("12")
+        * Decimal(str(_INTERVAL_HOURS))
+        / Decimal("1000")
+    )
     expected_import_cents = expected_import_kwh * Decimal("30")
 
     assert result.supply_charge_cents == Decimal("100")
-    assert float(result.import_charge_cents) == pytest.approx(float(expected_import_cents), rel=1e-6)
+    assert float(result.import_charge_cents) == pytest.approx(
+        float(expected_import_cents), rel=1e-6
+    )
     assert result.export_credit_cents == Decimal("0")
     assert result.demand_charge_cents == Decimal("0")
     assert float(result.total_cents) == pytest.approx(
-        float(result.supply_charge_cents + result.import_charge_cents - result.export_credit_cents),
+        float(
+            result.supply_charge_cents
+            + result.import_charge_cents
+            - result.export_credit_cents
+        ),
         rel=1e-6,
     )
     assert "flat" in result.period_breakdown
@@ -122,11 +136,15 @@ def test_single_rate_export_credit() -> None:
 
     result = SingleRateStrategy().compute(readings, plan, rates)
 
-    export_kwh = Decimal("500") * Decimal("12") * Decimal(str(_INTERVAL_HOURS)) / Decimal("1000")
+    export_kwh = (
+        Decimal("500") * Decimal("12") * Decimal(str(_INTERVAL_HOURS)) / Decimal("1000")
+    )
     expected_credit = export_kwh * Decimal("10")
 
     assert result.import_charge_cents == Decimal("0")
-    assert float(result.export_credit_cents) == pytest.approx(float(expected_credit), rel=1e-6)
+    assert float(result.export_credit_cents) == pytest.approx(
+        float(expected_credit), rel=1e-6
+    )
     assert float(result.total_cents) == pytest.approx(
         float(Decimal("100") - expected_credit), rel=1e-6
     )
@@ -141,7 +159,9 @@ def test_single_rate_mixed_import_export() -> None:
     plan = _plan("single_rate", supply_cents=0.0, fit_cents=5.0)
     rates = [_rate("flat", cents_per_kwh=20.0)]
 
-    result = SingleRateStrategy().compute(import_readings + export_readings, plan, rates)
+    result = SingleRateStrategy().compute(
+        import_readings + export_readings, plan, rates
+    )
 
     assert result.import_charge_cents > 0
     assert result.export_credit_cents > 0
@@ -190,7 +210,9 @@ def test_tou_peak_window() -> None:
     readings = [_reading(_ts(16, 30), grid_w=1000)]
     plan = _plan("tou", supply_cents=0.0)
     rates = [
-        _rate("peak", cents_per_kwh=40.0, window_start=time(16, 0), window_end=time(21, 0)),
+        _rate(
+            "peak", cents_per_kwh=40.0, window_start=time(16, 0), window_end=time(21, 0)
+        ),
         _rate("offpeak", cents_per_kwh=15.0),
     ]
 
@@ -200,8 +222,9 @@ def test_tou_peak_window() -> None:
     assert result.period_breakdown["peak"].kwh > 0
     assert result.period_breakdown["peak"].cents > 0
     # Should not also appear in offpeak
-    assert result.period_breakdown.get("offpeak", None) is None or \
-        result.period_breakdown["offpeak"].kwh == Decimal("0")
+    assert result.period_breakdown.get(
+        "offpeak", None
+    ) is None or result.period_breakdown["offpeak"].kwh == Decimal("0")
 
 
 def test_tou_offpeak_window() -> None:
@@ -211,16 +234,24 @@ def test_tou_offpeak_window() -> None:
     readings = [_reading(_ts(2, 0), grid_w=500)]
     plan = _plan("tou", supply_cents=0.0)
     rates = [
-        _rate("peak", cents_per_kwh=40.0, window_start=time(16, 0), window_end=time(21, 0)),
-        _rate("shoulder", cents_per_kwh=28.0, window_start=time(7, 0), window_end=time(16, 0)),
+        _rate(
+            "peak", cents_per_kwh=40.0, window_start=time(16, 0), window_end=time(21, 0)
+        ),
+        _rate(
+            "shoulder",
+            cents_per_kwh=28.0,
+            window_start=time(7, 0),
+            window_end=time(16, 0),
+        ),
         _rate("offpeak", cents_per_kwh=15.0),
     ]
 
     result = TOUStrategy().compute(readings, plan, rates)
 
     assert result.period_breakdown["offpeak"].kwh > 0
-    assert result.period_breakdown.get("peak") is None or \
-        result.period_breakdown["peak"].kwh == Decimal("0")
+    assert result.period_breakdown.get("peak") is None or result.period_breakdown[
+        "peak"
+    ].kwh == Decimal("0")
 
 
 def test_tou_shoulder_window() -> None:
@@ -230,16 +261,24 @@ def test_tou_shoulder_window() -> None:
     readings = [_reading(_ts(10, 0), grid_w=2000)]
     plan = _plan("tou", supply_cents=0.0)
     rates = [
-        _rate("peak", cents_per_kwh=40.0, window_start=time(16, 0), window_end=time(21, 0)),
-        _rate("shoulder", cents_per_kwh=28.0, window_start=time(7, 0), window_end=time(16, 0)),
+        _rate(
+            "peak", cents_per_kwh=40.0, window_start=time(16, 0), window_end=time(21, 0)
+        ),
+        _rate(
+            "shoulder",
+            cents_per_kwh=28.0,
+            window_start=time(7, 0),
+            window_end=time(16, 0),
+        ),
         _rate("offpeak", cents_per_kwh=15.0),
     ]
 
     result = TOUStrategy().compute(readings, plan, rates)
 
     assert result.period_breakdown["shoulder"].kwh > 0
-    assert result.period_breakdown.get("peak") is None or \
-        result.period_breakdown["peak"].kwh == Decimal("0")
+    assert result.period_breakdown.get("peak") is None or result.period_breakdown[
+        "peak"
+    ].kwh == Decimal("0")
 
 
 def test_tou_mixed_periods() -> None:
@@ -247,14 +286,21 @@ def test_tou_mixed_periods() -> None:
     from candela.tariffs.strategies.tou import TOUStrategy
 
     readings = [
-        _reading(_ts(3, 0), grid_w=500),    # offpeak
-        _reading(_ts(9, 0), grid_w=1000),   # shoulder
+        _reading(_ts(3, 0), grid_w=500),  # offpeak
+        _reading(_ts(9, 0), grid_w=1000),  # shoulder
         _reading(_ts(17, 0), grid_w=2000),  # peak
     ]
     plan = _plan("tou", supply_cents=0.0)
     rates = [
-        _rate("peak", cents_per_kwh=40.0, window_start=time(16, 0), window_end=time(21, 0)),
-        _rate("shoulder", cents_per_kwh=28.0, window_start=time(7, 0), window_end=time(16, 0)),
+        _rate(
+            "peak", cents_per_kwh=40.0, window_start=time(16, 0), window_end=time(21, 0)
+        ),
+        _rate(
+            "shoulder",
+            cents_per_kwh=28.0,
+            window_start=time(7, 0),
+            window_end=time(16, 0),
+        ),
         _rate("offpeak", cents_per_kwh=15.0),
     ]
 
@@ -265,8 +311,13 @@ def test_tou_mixed_periods() -> None:
     assert result.period_breakdown["offpeak"].kwh > 0
 
     # Peak rate is highest → peak bucket has highest cost per kWh
-    peak_cpkwh = result.period_breakdown["peak"].cents / result.period_breakdown["peak"].kwh
-    offpeak_cpkwh = result.period_breakdown["offpeak"].cents / result.period_breakdown["offpeak"].kwh
+    peak_cpkwh = (
+        result.period_breakdown["peak"].cents / result.period_breakdown["peak"].kwh
+    )
+    offpeak_cpkwh = (
+        result.period_breakdown["offpeak"].cents
+        / result.period_breakdown["offpeak"].kwh
+    )
     assert peak_cpkwh > offpeak_cpkwh
 
 
@@ -293,8 +344,9 @@ def test_tou_days_of_week_filter() -> None:
     result = TOUStrategy().compute(readings, plan, rates)
 
     # Wednesday is not in the peak rate's days_of_week, so falls to offpeak
-    assert result.period_breakdown.get("peak") is None or \
-        result.period_breakdown["peak"].kwh == Decimal("0")
+    assert result.period_breakdown.get("peak") is None or result.period_breakdown[
+        "peak"
+    ].kwh == Decimal("0")
     assert result.period_breakdown["offpeak"].kwh > 0
 
 
@@ -305,7 +357,12 @@ def test_tou_export_uses_fit() -> None:
     readings = [_reading(_ts(12, 0), grid_w=-1000)]
     plan = _plan("tou", supply_cents=0.0, fit_cents=5.0)
     rates = [
-        _rate("shoulder", cents_per_kwh=28.0, window_start=time(7, 0), window_end=time(16, 0)),
+        _rate(
+            "shoulder",
+            cents_per_kwh=28.0,
+            window_start=time(7, 0),
+            window_end=time(16, 0),
+        ),
         _rate("offpeak", cents_per_kwh=15.0),
     ]
 
@@ -333,7 +390,9 @@ def test_demand_basic_demand_charge() -> None:
 
     plan = _plan("demand", supply_cents=0.0)
     rates = [
-        _rate("peak", cents_per_kwh=40.0, window_start=time(16, 0), window_end=time(21, 0)),
+        _rate(
+            "peak", cents_per_kwh=40.0, window_start=time(16, 0), window_end=time(21, 0)
+        ),
         _rate("offpeak", cents_per_kwh=15.0),
         _rate(
             "demand",
@@ -345,7 +404,9 @@ def test_demand_basic_demand_charge() -> None:
 
     result = DemandStrategy().compute(peak_block + outside, plan, rates)
 
-    assert float(result.demand_charge_cents) == pytest.approx(200.0, rel=1e-4)  # 4 kW × 50 c/kW
+    assert float(result.demand_charge_cents) == pytest.approx(
+        200.0, rel=1e-4
+    )  # 4 kW × 50 c/kW
 
 
 def test_demand_uses_max_block() -> None:
@@ -359,7 +420,9 @@ def test_demand_uses_max_block() -> None:
 
     plan = _plan("demand", supply_cents=0.0)
     rates = [
-        _rate("peak", cents_per_kwh=40.0, window_start=time(16, 0), window_end=time(21, 0)),
+        _rate(
+            "peak", cents_per_kwh=40.0, window_start=time(16, 0), window_end=time(21, 0)
+        ),
         _rate("offpeak", cents_per_kwh=15.0),
         _rate(
             "demand",
@@ -386,7 +449,9 @@ def test_demand_spike_outside_window_ignored() -> None:
 
     plan = _plan("demand", supply_cents=0.0)
     rates = [
-        _rate("peak", cents_per_kwh=40.0, window_start=time(16, 0), window_end=time(21, 0)),
+        _rate(
+            "peak", cents_per_kwh=40.0, window_start=time(16, 0), window_end=time(21, 0)
+        ),
         _rate("offpeak", cents_per_kwh=15.0),
         _rate(
             "demand",
@@ -434,12 +499,13 @@ def _aemo_price(
     rrp: float,
     region: str = "QLD1",
 ) -> AemoPrice:
-    """30-minute AEMO price interval starting at {hour}:{minute} UTC on 2026-01-01."""
+    """5-minute AEMO price interval starting at {hour}:{minute} UTC on 2026-01-01."""
     from datetime import timedelta
+
     start = datetime(2026, 1, 1, hour, minute, 0, tzinfo=UTC)
     return AemoPrice(
         interval_start=start,
-        interval_end=start + timedelta(minutes=30),
+        interval_end=start + timedelta(minutes=5),
         rrp_per_mwh=rrp,
         region=region,
     )
@@ -449,7 +515,7 @@ def test_wholesale_import_positive_price() -> None:
     """Import at a positive AEMO price is charged at (rrp/10 + adder) c/kWh."""
     from candela.tariffs.strategies.wholesale import WholesaleStrategy
 
-    # 1 reading at 16:00 → falls in the 16:00–16:30 AEMO block
+    # 1 reading at 16:00 → falls in the 16:00–16:05 AEMO block
     reading = _reading(_ts(16, 0), grid_w=1000)
     plan = _plan("wholesale", supply_cents=0.0)
     rates = []
@@ -464,7 +530,9 @@ def test_wholesale_import_positive_price() -> None:
     rate_cents_per_kwh = Decimal("100") / Decimal("10") + adder  # rrp/10 + adder
     expected_import = kwh * rate_cents_per_kwh
 
-    assert float(result.import_charge_cents) == pytest.approx(float(expected_import), rel=1e-6)
+    assert float(result.import_charge_cents) == pytest.approx(
+        float(expected_import), rel=1e-6
+    )
     assert result.export_credit_cents == Decimal("0")
 
 
@@ -487,7 +555,9 @@ def test_wholesale_export_positive_price() -> None:
     expected_credit = kwh * credit_rate
 
     assert result.import_charge_cents == Decimal("0")
-    assert float(result.export_credit_cents) == pytest.approx(float(expected_credit), rel=1e-6)
+    assert float(result.export_credit_cents) == pytest.approx(
+        float(expected_credit), rel=1e-6
+    )
 
 
 def test_wholesale_negative_price_export() -> None:
@@ -549,7 +619,10 @@ def test_wholesale_supply_charge_applied() -> None:
     """Supply charge is included in the wholesale bill total."""
     from candela.tariffs.strategies.wholesale import WholesaleStrategy
 
-    readings = [_reading(_ts(0, 0, day=1), grid_w=0), _reading(_ts(0, 0, day=2), grid_w=0)]
+    readings = [
+        _reading(_ts(0, 0, day=1), grid_w=0),
+        _reading(_ts(0, 0, day=2), grid_w=0),
+    ]
     plan = _plan("wholesale", supply_cents=150.0)
     rates = []
     aemo_prices = []

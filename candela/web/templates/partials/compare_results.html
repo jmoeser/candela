@@ -1,0 +1,108 @@
+{% if results %}
+<div class="cr-meta">
+  <div class="cr-meta-range">
+    <span class="cr-meta-pip"></span>
+    {{ from_ }} → {{ to }}
+  </div>
+  <span class="cr-sorted">Sorted cheapest first</span>
+</div>
+
+<div class="cr-grid">
+  {% for r in results %}
+  {% set lcs = load_costs_by_plan.get(r.plan_id, []) %}
+  <div class="cr-card {% if loop.first %}cr-cheapest{% endif %}">
+
+    <div class="cr-accent-bar"></div>
+
+    <div class="cr-card-body">
+
+      <!-- Header -->
+      <div class="cr-head">
+        <div class="cr-plan-name">{{ r.plan_name }}</div>
+        <div class="cr-head-badges">
+          <span class="cr-type-pill cr-type-{{ r.plan_type }}">{{ r.plan_type.replace("_", " ") }}</span>
+          {% if loop.first %}<span class="cr-best-pill">Cheapest</span>{% endif %}
+        </div>
+      </div>
+
+      <!-- Total -->
+      <div class="cr-total-row">
+        <span class="cr-total-sym">$</span>
+        <span class="cr-total">{{ "%.2f"|format(r.total_cents / 100) }}</span>
+      </div>
+
+      <!-- Bill breakdown chips -->
+      <div class="cr-chips">
+        <div class="cr-chip">
+          <span class="cr-chip-lbl">Supply</span>
+          <span class="cr-chip-val">${{ "%.2f"|format(r.supply_charge_cents / 100) }}</span>
+        </div>
+        <div class="cr-chip">
+          <span class="cr-chip-lbl">Import</span>
+          <span class="cr-chip-val">${{ "%.2f"|format(r.import_charge_cents / 100) }}</span>
+        </div>
+        <div class="cr-chip cr-chip-export">
+          <span class="cr-chip-lbl">Export credit</span>
+          <span class="cr-chip-val">−${{ "%.2f"|format(r.export_credit_cents / 100) }}</span>
+        </div>
+        {% if r.demand_charge_cents %}
+        <div class="cr-chip cr-chip-demand">
+          <span class="cr-chip-lbl">Demand</span>
+          <span class="cr-chip-val">${{ "%.2f"|format(r.demand_charge_cents / 100) }}</span>
+        </div>
+        {% else %}
+        <div class="cr-chip" style="opacity:0.35">
+          <span class="cr-chip-lbl">Demand</span>
+          <span class="cr-chip-val">—</span>
+        </div>
+        {% endif %}
+      </div>
+
+      <!-- Load costs -->
+      {% if lcs %}
+      <div class="cr-loads">
+        <div class="cr-loads-hd">
+          <span class="cr-loads-hd-icon">⚡</span>
+          <span class="cr-loads-hd-lbl">Load costs</span>
+        </div>
+        {% for lc in lcs %}
+        <div class="cr-load-row">
+          <span class="cr-load-name">{{ lc.load_name.replace("_", " ") | title }}</span>
+          <span class="cr-load-meta">{{ lc.event_count }} ev · {{ "%.1f"|format(lc.kwh) }} kWh</span>
+          <span class="cr-load-cost">
+            {% if lc.cost_cents is not none %}
+            ${{ "%.2f"|format(lc.cost_cents / 100) }}
+            {% else %}
+            <span class="cr-load-cost-na">N/A</span>
+            {% endif %}
+          </span>
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+
+      <!-- Period breakdown (collapsible) -->
+      {% if r.period_breakdown %}
+      <details class="cr-periods">
+        <summary>Period breakdown</summary>
+        <div class="cr-period-rows">
+          {% for period, pb in r.period_breakdown.items() %}
+          <div class="cr-period-row">
+            <span class="cr-dot cr-dot-{{ period }}"></span>
+            <span class="cr-period-name">{{ period | title }}</span>
+            <span class="cr-period-kwh">{{ "%.1f"|format(pb.kwh) }} kWh</span>
+            <span class="cr-period-cost">${{ "%.2f"|format(pb.cents / 100) }}</span>
+          </div>
+          {% endfor %}
+        </div>
+      </details>
+      {% endif %}
+
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+{% elif results is defined %}
+<p class="cr-empty">No readings in the selected range — nothing to compare.</p>
+{% endif %}

@@ -16,7 +16,7 @@ DATABASE_URL=... uv run alembic revision --autogenerate -m "description"  # new 
 
 ## Architecture
 
-Candela is a solar analytics app: it polls a Sungrow inverter every 5 minutes, models electricity costs against multiple tariff structures, and does load disaggregation (EV charging, hot water heat pump detection). Deployed on Fedora CoreOS via Podman Quadlet as two separate systemd container units — web server and collector poller.
+Candela is a solar analytics app: it polls the iSolarCloud API every 5 minutes, models electricity costs against multiple tariff structures, and does load disaggregation (EV charging, hot water heat pump detection). Deployed on Fedora CoreOS via Podman Quadlet as two separate systemd container units — web server and collector poller.
 
 ### Database abstraction (`candela/db.py`)
 
@@ -28,7 +28,7 @@ Single `Database` class works over both SQLite (dev, `aiosqlite`) and PostgreSQL
 
 ### Configuration (`candela/config.py`)
 
-Pydantic Settings; all config from environment variables or `.env` file. `get_settings()` returns a fresh instance (not a singleton) so tests can patch it. Required vars: `DATABASE_URL`, `INVERTER_HOST`.
+Pydantic Settings; all config from environment variables or `.env` file. `get_settings()` returns a fresh instance (not a singleton) so tests can patch it. Required vars: `DATABASE_URL`, `SECRET_KEY`, `AUTH_USERNAME`, `AUTH_PASSWORD`, `ISOLARCLOUD_APP_KEY`, `ISOLARCLOUD_ACCESS_KEY`, `ISOLARCLOUD_USERNAME`, `ISOLARCLOUD_PASSWORD`.
 
 ### App lifecycle (`candela/main.py`)
 
@@ -36,7 +36,7 @@ Pydantic Settings; all config from environment variables or `.env` file. `get_se
 
 ### Module layout
 
-- `candela/collector/` — inverter polling (APScheduler), AEMO wholesale fetcher, CSV backfill
+- `candela/collector/` — iSolarCloud API polling (APScheduler), AEMO wholesale fetcher
 - `candela/tariffs/strategies/` — pluggable tariff calculation (single rate, TOU, demand, wholesale)
 - `candela/disaggregation/` — EV and hot water heat pump event detection
 - `candela/api/` — JSON API routers

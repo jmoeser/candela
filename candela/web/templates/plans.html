@@ -1,0 +1,366 @@
+{% extends "base.html" %}
+{% block title %}Plans — Candela{% endblock %}
+
+{% block extra_head %}
+<style>
+/* ── Plans page ── */
+.pl-type-pill {
+  display: inline-block;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding: 2px 8px;
+  border-radius: 99px;
+  white-space: nowrap;
+}
+.pl-type-single_rate { background: rgba(96,165,250,0.1);  color: #60a5fa; }
+.pl-type-tou         { background: rgba(167,139,250,0.1); color: #a78bfa; }
+.pl-type-demand      { background: rgba(248,113,113,0.1); color: #f87171; }
+.pl-type-wholesale   { background: rgba(251,191,36,0.1);  color: #fbbf24; }
+
+.pl-table-outer {
+  overflow-x: auto;
+  margin-bottom: 2rem;
+  background: var(--surface-1);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+}
+
+.pl-table-outer table { min-width: 720px; }
+
+.pl-add-section {
+  background: var(--surface-1);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: 24px 28px;
+  box-shadow: var(--shadow-card);
+}
+
+.pl-add-section > h2 {
+  font-size: 0.95rem;
+  color: var(--text-secondary);
+  margin-bottom: 1.25rem;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border-dim);
+}
+
+.pl-rates-section {
+  margin: 1rem 0;
+  padding: 16px 20px;
+  background: var(--surface-2, rgba(255,255,255,0.03));
+  border: 1px solid var(--border-dim);
+  border-radius: var(--radius-md, 8px);
+}
+
+.pl-rates-section h3 {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin: 0 0 1rem;
+}
+
+.pl-rate-row {
+  margin-bottom: 0.75rem;
+}
+
+.pl-rate-row strong {
+  display: block;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  margin-bottom: 0.35rem;
+}
+
+.pl-rate-row .grid { margin-bottom: 0; }
+</style>
+{% endblock %}
+
+{% block content %}
+<h1>Tariff Plans</h1>
+
+{% if plans %}
+<div class="pl-table-outer">
+  <table>
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Type</th>
+        <th>Retailer</th>
+        <th>Supply (c/day)</th>
+        <th>FiT (c/kWh)</th>
+        <th>Valid from</th>
+        <th>Valid to</th>
+        <th>Current plan</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for plan in plans %}
+      <tr{% if current_period and current_period.plan_id == plan.id %} class="current-plan-row"{% endif %}>
+        <td><strong style="color:var(--text-primary)">{{ plan.name }}</strong></td>
+        <td>
+          <span class="pl-type-pill pl-type-{{ plan.plan_type }}">
+            {{ plan.plan_type.replace("_", " ") | title }}
+          </span>
+        </td>
+        <td>{{ plan.retailer or "—" }}</td>
+        <td>{{ "%.2f"|format(plan.supply_charge_daily_cents | float) }}</td>
+        <td>{{ "%.2f"|format(plan.feed_in_tariff_cents | float) if plan.feed_in_tariff_cents else "—" }}</td>
+        <td style="white-space:nowrap">{{ plan.valid_from }}</td>
+        <td style="white-space:nowrap">{{ plan.valid_to or "—" }}</td>
+        <td>
+          {% if current_period and current_period.plan_id == plan.id %}
+          <mark>Current since {{ current_period.active_from }}</mark>
+          {% else %}
+          <form method="post" action="/plans/{{ plan.id }}/set-current" style="display:flex;gap:0.4rem;align-items:center;margin:0">
+            <input type="date" name="active_from" value="{{ today }}" style="margin:0;padding:0.2rem 0.4rem;width:auto;min-width:120px">
+            <button type="submit" class="secondary outline" style="margin:0;padding:0.2rem 0.6rem;white-space:nowrap">Set current</button>
+          </form>
+          {% endif %}
+        </td>
+        <td>
+          {% if plan.plan_type != 'wholesale' and (not current_period or current_period.plan_id != plan.id) %}
+          <button
+            hx-delete="/api/v1/plans/{{ plan.id }}"
+            hx-confirm="Delete '{{ plan.name }}'? This cannot be undone."
+            hx-swap="none"
+            hx-on::after-request="if(event.detail.successful) location.reload();"
+            class="secondary outline"
+            style="margin:0;padding:0.15rem 0.5rem;font-size:0.75rem;color:#f87171;border-color:#f87171">Delete</button>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<p>No plans yet.</p>
+{% endif %}
+
+<div class="pl-add-section">
+  <h2>Add Plan</h2>
+
+  <form id="add-plan-form">
+    <div class="grid">
+      <label>
+        Name
+        <input type="text" name="name" placeholder="Engie Single Rate" required>
+      </label>
+      <label>
+        Retailer
+        <input type="text" name="retailer" placeholder="Engie">
+      </label>
+    </div>
+    <div class="grid">
+      <label>
+        Plan type
+        <select name="plan_type" required>
+          <option value="single_rate">Single rate</option>
+          <option value="tou">Time-of-use</option>
+          <option value="demand">Demand</option>
+          <option value="wholesale">Wholesale</option>
+        </select>
+      </label>
+      <label>
+        Supply charge (c/day)
+        <input type="number" name="supply_charge_daily_cents" step="0.0001" min="0" required>
+      </label>
+      <label>
+        Feed-in tariff (c/kWh)
+        <input type="number" name="feed_in_tariff_cents" step="0.0001" min="0">
+      </label>
+    </div>
+    <div class="grid">
+      <label>
+        Valid from
+        <input type="date" name="valid_from" required>
+      </label>
+      <label>
+        Valid to
+        <input type="date" name="valid_to">
+      </label>
+    </div>
+    <label>
+      Notes
+      <input type="text" name="notes" placeholder="Optional notes">
+    </label>
+
+    <!-- Single-rate rate section -->
+    <div id="rate-section-single_rate" class="pl-rates-section" style="display:none">
+      <h3>Rate</h3>
+      <label>
+        Flat rate (c/kWh)
+        <input type="number" name="flat_rate_cents" step="0.0001" min="0" placeholder="30.00">
+      </label>
+    </div>
+
+    <!-- TOU rate section -->
+    <div id="rate-section-tou" class="pl-rates-section" style="display:none">
+      <h3>Time-of-Use Rates</h3>
+      <div class="pl-rate-row">
+        <strong>Peak</strong>
+        <div class="grid">
+          <label>Rate (c/kWh)<input type="number" name="peak_rate" step="0.0001" min="0" placeholder="45.00"></label>
+          <label>Window start<input type="time" name="peak_start"></label>
+          <label>Window end<input type="time" name="peak_end"></label>
+        </div>
+      </div>
+      <div class="pl-rate-row">
+        <strong>Shoulder <span style="font-weight:400;opacity:0.6">(optional)</span></strong>
+        <div class="grid">
+          <label>Rate (c/kWh)<input type="number" name="shoulder_rate" step="0.0001" min="0" placeholder="30.00"></label>
+          <label>Window start<input type="time" name="shoulder_start"></label>
+          <label>Window end<input type="time" name="shoulder_end"></label>
+        </div>
+      </div>
+      <div class="pl-rate-row">
+        <strong>Off-peak</strong>
+        <div class="grid">
+          <label>Rate (c/kWh)<input type="number" name="offpeak_rate" step="0.0001" min="0" placeholder="18.00"></label>
+          <label>Window start<input type="time" name="offpeak_start"></label>
+          <label>Window end<input type="time" name="offpeak_end"></label>
+        </div>
+      </div>
+    </div>
+
+    <!-- Demand rate section (TOU energy rates + demand charge) -->
+    <div id="rate-section-demand" class="pl-rates-section" style="display:none">
+      <h3>Time-of-Use Rates</h3>
+      <div class="pl-rate-row">
+        <strong>Peak</strong>
+        <div class="grid">
+          <label>Rate (c/kWh)<input type="number" name="d_peak_rate" step="0.0001" min="0" placeholder="45.00"></label>
+          <label>Window start<input type="time" name="d_peak_start"></label>
+          <label>Window end<input type="time" name="d_peak_end"></label>
+        </div>
+      </div>
+      <div class="pl-rate-row">
+        <strong>Shoulder <span style="font-weight:400;opacity:0.6">(optional)</span></strong>
+        <div class="grid">
+          <label>Rate (c/kWh)<input type="number" name="d_shoulder_rate" step="0.0001" min="0" placeholder="30.00"></label>
+          <label>Window start<input type="time" name="d_shoulder_start"></label>
+          <label>Window end<input type="time" name="d_shoulder_end"></label>
+        </div>
+      </div>
+      <div class="pl-rate-row">
+        <strong>Off-peak</strong>
+        <div class="grid">
+          <label>Rate (c/kWh)<input type="number" name="d_offpeak_rate" step="0.0001" min="0" placeholder="18.00"></label>
+          <label>Window start<input type="time" name="d_offpeak_start"></label>
+          <label>Window end<input type="time" name="d_offpeak_end"></label>
+        </div>
+      </div>
+      <h3 style="margin-top:1.25rem">Demand Charge</h3>
+      <div class="pl-rate-row">
+        <div class="grid">
+          <label>Rate (c/kW)<input type="number" name="demand_rate_cents_per_kw" step="0.0001" min="0" placeholder="e.g. 53.00"></label>
+          <label>Window start <span style="font-weight:400;opacity:0.6">(optional)</span><input type="time" name="demand_window_start"></label>
+          <label>Window end <span style="font-weight:400;opacity:0.6">(optional)</span><input type="time" name="demand_window_end"></label>
+        </div>
+      </div>
+    </div>
+
+    <div id="plan-form-error" style="display:none;color:#f87171;margin-bottom:0.75rem;font-size:0.85rem"></div>
+    <div>
+      <button type="submit">Save plan</button>
+    </div>
+  </form>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  document.querySelector('input[name="valid_from"]').value =
+    new Date().toISOString().slice(0, 10);
+
+  const planTypeSelect = document.querySelector('select[name="plan_type"]');
+
+  function updateRateSection() {
+    document.querySelectorAll('.pl-rates-section').forEach(s => s.style.display = 'none');
+    const section = document.getElementById('rate-section-' + planTypeSelect.value);
+    if (section) section.style.display = '';
+  }
+
+  planTypeSelect.addEventListener('change', updateRateSection);
+  updateRateSection();
+
+  document.getElementById('add-plan-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const form = e.target;
+    const fd = new FormData(form);
+    const errEl = document.getElementById('plan-form-error');
+    errEl.style.display = 'none';
+
+    const planType = fd.get('plan_type');
+    const payload = {
+      name: fd.get('name'),
+      retailer: fd.get('retailer') || null,
+      plan_type: planType,
+      supply_charge_daily_cents: parseFloat(fd.get('supply_charge_daily_cents')),
+      feed_in_tariff_cents: fd.get('feed_in_tariff_cents') ? parseFloat(fd.get('feed_in_tariff_cents')) : null,
+      valid_from: fd.get('valid_from'),
+      valid_to: fd.get('valid_to') || null,
+      notes: fd.get('notes') || null,
+      rates: [],
+    };
+
+    if (planType === 'single_rate') {
+      const v = fd.get('flat_rate_cents');
+      if (v) payload.rates.push({ rate_type: 'flat', cents_per_kwh: parseFloat(v) });
+    } else if (planType === 'tou') {
+      const addEnergy = (rateType, rateKey, startKey, endKey) => {
+        const v = fd.get(rateKey);
+        if (v) payload.rates.push({
+          rate_type: rateType,
+          cents_per_kwh: parseFloat(v),
+          window_start: fd.get(startKey) || null,
+          window_end: fd.get(endKey) || null,
+        });
+      };
+      addEnergy('peak',    'peak_rate',     'peak_start',     'peak_end');
+      addEnergy('shoulder','shoulder_rate', 'shoulder_start', 'shoulder_end');
+      addEnergy('offpeak', 'offpeak_rate',  'offpeak_start',  'offpeak_end');
+    } else if (planType === 'demand') {
+      const addEnergy = (rateType, rateKey, startKey, endKey) => {
+        const v = fd.get(rateKey);
+        if (v) payload.rates.push({
+          rate_type: rateType,
+          cents_per_kwh: parseFloat(v),
+          window_start: fd.get(startKey) || null,
+          window_end: fd.get(endKey) || null,
+        });
+      };
+      addEnergy('peak',    'd_peak_rate',     'd_peak_start',     'd_peak_end');
+      addEnergy('shoulder','d_shoulder_rate', 'd_shoulder_start', 'd_shoulder_end');
+      addEnergy('offpeak', 'd_offpeak_rate',  'd_offpeak_start',  'd_offpeak_end');
+      const dv = fd.get('demand_rate_cents_per_kw');
+      if (dv) payload.rates.push({
+        rate_type: 'demand',
+        cents_per_kw: parseFloat(dv),
+        demand_window_start: fd.get('demand_window_start') || null,
+        demand_window_end: fd.get('demand_window_end') || null,
+      });
+    }
+
+    const resp = await fetch('/api/v1/plans', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+
+    if (resp.ok) {
+      form.reset();
+      updateRateSection();
+      location.reload();
+    } else {
+      const err = await resp.json().catch(() => ({}));
+      errEl.textContent = 'Error: ' + (err.detail || resp.statusText);
+      errEl.style.display = 'block';
+    }
+  });
+</script>
+{% endblock %}

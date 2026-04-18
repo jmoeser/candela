@@ -1,5 +1,5 @@
 [Unit]
-Description=Candela data collector (inverter poller + AEMO fetcher)
+Description=Candela data collector (iSolarCloud poller + AEMO fetcher)
 After=network-online.target candela-web.service
 Wants=network-online.target
 

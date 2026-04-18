@@ -9,30 +9,65 @@
   {% block extra_head %}{% endblock %}
 </head>
 <body>
-  <nav class="cd-sidebar">
+  <nav class="cd-sidebar" id="cd-sidebar">
     <div class="cd-sidebar-header">
       <a href="/" class="cd-logo">
-        <span class="cd-logo-icon">☀</span>
-        Candela
+        <img src="/static/logo.svg" class="cd-logo-icon" width="20" height="20" alt="">
+        <span class="cd-logo-text">Candela</span>
       </a>
     </div>
     <ul class="cd-nav">
-      <li><a href="/" class="{{ 'active' if request.url.path == '/' }}">Dashboard</a></li>
-      <li><a href="/history" class="{{ 'active' if request.url.path == '/history' }}">History</a></li>
-      <li><a href="/compare" class="{{ 'active' if request.url.path == '/compare' }}">Compare</a></li>
-      <li><a href="/plans" class="{{ 'active' if request.url.path == '/plans' }}">Plans</a></li>
-      <li><a href="/loads" class="{{ 'active' if request.url.path == '/loads' }}">Loads</a></li>
+      <li><a href="/" class="{{ 'active' if request.url.path == '/' }}">
+        <span class="cd-nav-icon">⊞</span>
+        <span class="cd-nav-label">Dashboard</span>
+      </a></li>
+      <li><a href="/history" class="{{ 'active' if request.url.path == '/history' }}">
+        <span class="cd-nav-icon">⊙</span>
+        <span class="cd-nav-label">History</span>
+      </a></li>
+      <li><a href="/compare" class="{{ 'active' if request.url.path == '/compare' }}">
+        <span class="cd-nav-icon">⇄</span>
+        <span class="cd-nav-label">Compare</span>
+      </a></li>
+      <li><a href="/plans" class="{{ 'active' if request.url.path == '/plans' }}">
+        <span class="cd-nav-icon">☰</span>
+        <span class="cd-nav-label">Plans</span>
+      </a></li>
+      <li><a href="/loads" class="{{ 'active' if request.url.path == '/loads' }}">
+        <span class="cd-nav-icon">⚡︎</span>
+        <span class="cd-nav-label">Loads</span>
+      </a></li>
     </ul>
     <div class="cd-nav-footer">
       <form method="post" action="/logout" style="margin: 0;">
-        <button type="submit" class="cd-nav-logout">Sign out</button>
+        <button type="submit" class="cd-nav-logout">
+          <span class="cd-nav-icon">⎋</span>
+          <span class="cd-nav-label">Sign out</span>
+        </button>
       </form>
     </div>
   </nav>
 
+  <button class="cd-collapse-btn" id="cd-collapse-btn" aria-label="Toggle sidebar" type="button">
+    <svg class="cd-collapse-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+  </button>
+
   <main class="cd-main">
     {% block content %}{% endblock %}
   </main>
+
+  <script>
+    (function () {
+      var STORAGE_KEY = 'cd-sidebar-collapsed';
+      var sidebar = document.getElementById('cd-sidebar');
+      var btn = document.getElementById('cd-collapse-btn');
+      if (localStorage.getItem(STORAGE_KEY) === 'true') sidebar.classList.add('collapsed');
+      btn.addEventListener('click', function () {
+        var collapsed = sidebar.classList.toggle('collapsed');
+        localStorage.setItem(STORAGE_KEY, collapsed);
+      });
+    })();
+  </script>
 
   {% block scripts %}{% endblock %}
 </body>

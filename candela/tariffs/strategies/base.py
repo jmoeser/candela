@@ -1,6 +1,6 @@
 """Base protocol and shared helpers for tariff strategies."""
 
-from datetime import datetime, time
+from datetime import datetime
 from decimal import Decimal
 from typing import Protocol
 
@@ -40,12 +40,20 @@ def supply_charge_cents(plan: TariffPlan, readings: list[SolarReading]) -> Decim
 
 def reading_import_kwh(reading: SolarReading) -> Decimal:
     """kWh imported from grid for a single 5-minute reading."""
-    return Decimal(str(max(reading.grid_w, 0))) * Decimal(str(_INTERVAL_HOURS)) / Decimal("1000")
+    return (
+        Decimal(str(max(reading.grid_w, 0)))
+        * Decimal(str(_INTERVAL_HOURS))
+        / Decimal("1000")
+    )
 
 
 def reading_export_kwh(reading: SolarReading) -> Decimal:
     """kWh exported to grid for a single 5-minute reading."""
-    return Decimal(str(max(-reading.grid_w, 0))) * Decimal(str(_INTERVAL_HOURS)) / Decimal("1000")
+    return (
+        Decimal(str(max(-reading.grid_w, 0)))
+        * Decimal(str(_INTERVAL_HOURS))
+        / Decimal("1000")
+    )
 
 
 def rate_applies(rate: TariffRate, ts: datetime) -> bool:
@@ -80,5 +88,8 @@ def match_rate(ts: datetime, rates: list[TariffRate]) -> TariffRate | None:
 
 
 def block_start_for(ts: datetime) -> datetime:
-    """Return the start of the 30-minute aligned clock block containing *ts*."""
+    """Return the start of the 30-minute aligned clock block containing *ts*.
+
+    Used for demand charge calculations (Energex 30-minute block definition).
+    """
     return ts.replace(minute=(ts.minute // 30) * 30, second=0, microsecond=0)

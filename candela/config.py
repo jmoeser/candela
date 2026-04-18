@@ -14,6 +14,7 @@ class Settings(BaseSettings):
     auth_password: str
     api_key: str | None = None
     isolarcloud_app_key: str
+    isolarcloud_access_key: str
     isolarcloud_username: str
     isolarcloud_password: str  # stored plaintext in env, MD5'd at auth time
     isolarcloud_base_url: str = "https://augateway.isolarcloud.com"

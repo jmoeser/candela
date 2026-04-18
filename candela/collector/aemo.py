@@ -1,32 +1,29 @@
 """AEMO wholesale price fetcher.
 
-Downloads AEMO TRADINGPRICE CSV zip files for a given month and region,
-parses the 30-minute interval spot prices, and stores them in
+Downloads AEMO price-and-demand CSV files for a given month and region,
+parses the 5-minute interval spot prices, and stores them in
 ``aemo_trading_prices``.
 
 AEMO data format
 ----------------
 Files are published at:
 
-    https://www.nemweb.com.au/Data_Archive/Wholesale_Electricity/MMSDM/
-      {year}/MMSDM_{year}_{month:02d}/MMSDM_Historical_Data_SQLLoader/DATA/
-      PUBLIC_DVD_TRADINGPRICE_{year}{month:02d}010000.zip
+    https://www.aemo.com.au/aemo/data/nem/priceanddemand/
+      PRICE_AND_DEMAND_{year}{month:02d}_{region}.csv
 
-Each zip contains a single CSV with multiple interleaved record types:
-- ``C`` rows: comments/metadata — skip
-- ``I`` rows: column headers — use to find field positions
-- ``D`` rows: data records — only these carry price data
+Each file is a plain CSV with a header row and columns:
+    REGION, SETTLEMENTDATE, TOTALDEMAND, RRP, PERIODTYPE
 
 Filter logic:
-- Only process rows where column index 0 == ``'D'``
-- Only keep rows where ``REGIONID == region`` (default ``"QLD1"``)
-- ``SETTLEMENTDATE`` is the **end** of the 30-minute interval; subtract
-  30 minutes to get ``interval_start``
+- Only keep rows where ``PERIODTYPE == "TRADE"``
+- ``SETTLEMENTDATE`` is the **end** of the 5-minute interval; subtract
+  5 minutes to get ``interval_start``
 - ``RRP`` is the spot price in $/MWh (can be negative)
+- Date format is ``YYYY/MM/DD HH:MM:SS``
 
 Usage
 -----
-    # Fetch and store previous month's AEMO data (run daily via scheduler)
+    # Fetch and store current month's AEMO data (run daily via scheduler)
     uv run python -m candela.collector.aemo
 """
 
@@ -34,7 +31,6 @@ import asyncio
 import csv
 import io
 import logging
-import zipfile
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
@@ -46,83 +42,58 @@ from candela.db import Database
 logger = logging.getLogger(__name__)
 
 _AEMO_BASE = (
-    "https://www.nemweb.com.au/Data_Archive/Wholesale_Electricity/MMSDM/"
-    "{year}/MMSDM_{year}_{month:02d}/MMSDM_Historical_Data_SQLLoader/DATA/"
-    "PUBLIC_DVD_TRADINGPRICE_{year}{month:02d}010000.zip"
+    "https://www.aemo.com.au/aemo/data/nem/priceanddemand/"
+    "PRICE_AND_DEMAND_{year}{month:02d}_{region}.csv"
 )
 
-_SETTLEMENT_FMT = "%Y-%m-%d %H:%M:%S"
-_HALF_HOUR = timedelta(minutes=30)
+_SETTLEMENT_FMT = "%Y/%m/%d %H:%M:%S"
+_FIVE_MIN = timedelta(minutes=5)
 
 
 @dataclass
 class AemoPrice:
-    interval_start: datetime  # UTC, start of the 30-min trading interval
-    interval_end: datetime    # UTC, end of the 30-min trading interval
-    rrp_per_mwh: float        # Regional reference price in $/MWh (may be negative)
-    region: str               # NEM region identifier, e.g. "QLD1"
+    interval_start: datetime  # UTC, start of the 5-min trading interval
+    interval_end: datetime  # UTC, end of the 5-min trading interval
+    rrp_per_mwh: float  # Regional reference price in $/MWh (may be negative)
+    region: str  # NEM region identifier, e.g. "QLD1"
 
 
-def parse_tradingprice_csv(stream: io.TextIOBase, *, region: str = "QLD1") -> list[AemoPrice]:
-    """Parse an AEMO TRADINGPRICE CSV stream and return filtered price records.
+def parse_price_demand_csv(
+    stream: io.TextIOBase, *, region: str = "QLD1"
+) -> list[AemoPrice]:
+    """Parse an AEMO PRICE_AND_DEMAND CSV stream and return price records.
 
-    Only ``D`` (data) rows matching ``region`` are returned. The
-    ``SETTLEMENTDATE`` (interval end) is shifted back 30 minutes to produce
-    ``interval_start``.
+    Only ``TRADE`` rows are returned. ``SETTLEMENTDATE`` (interval end) is
+    shifted back 5 minutes to produce ``interval_start``.
 
     Parameters
     ----------
     stream:
-        Text stream of the extracted CSV file content.
+        Text stream of the CSV file content.
     region:
         NEM region to filter on (default ``"QLD1"``).
     """
     prices: list[AemoPrice] = []
-    headers: list[str] | None = None
-    settlement_idx: int | None = None
-    regionid_idx: int | None = None
-    rrp_idx: int | None = None
 
-    reader = csv.reader(stream)
+    reader = csv.DictReader(stream)
     for row in reader:
-        if not row:
+        if row.get("PERIODTYPE", "").strip() != "TRADE":
             continue
-
-        row_type = row[0].strip()
-
-        if row_type == "I":
-            # Header row — locate the columns we need
-            headers = [h.strip() for h in row]
-            try:
-                settlement_idx = headers.index("SETTLEMENTDATE")
-                regionid_idx = headers.index("REGIONID")
-                rrp_idx = headers.index("RRP")
-            except ValueError as exc:
-                logger.warning("AEMO CSV header missing expected column: %s", exc)
-                return []
-            continue
-
-        if row_type != "D":
-            continue
-
-        if headers is None or settlement_idx is None:
-            continue
-
-        if row[regionid_idx].strip() != region:
+        if row.get("REGION", "").strip() != region:
             continue
 
         try:
             settlement_dt = datetime.strptime(
-                row[settlement_idx].strip(), _SETTLEMENT_FMT
+                row["SETTLEMENTDATE"].strip(), _SETTLEMENT_FMT
             ).replace(tzinfo=UTC)
-            rrp = float(row[rrp_idx].strip())
-        except (ValueError, IndexError) as exc:
+            rrp = float(row["RRP"].strip())
+        except (ValueError, KeyError) as exc:
             logger.warning("Skipping malformed AEMO row: %s — %s", row, exc)
             continue
 
         prices.append(
             AemoPrice(
-                interval_start=settlement_dt - _HALF_HOUR,
+                interval_start=settlement_dt - _FIVE_MIN,
                 interval_end=settlement_dt,
                 rrp_per_mwh=rrp,
                 region=region,
@@ -132,8 +103,10 @@ def parse_tradingprice_csv(stream: io.TextIOBase, *, region: str = "QLD1") -> li
     return prices
 
 
-async def fetch_month(*, year: int, month: int, region: str = "QLD1") -> list[AemoPrice]:
-    """Download and parse the TRADINGPRICE file for a given month.
+async def fetch_month(
+    *, year: int, month: int, region: str = "QLD1"
+) -> list[AemoPrice]:
+    """Download and parse the PRICE_AND_DEMAND file for a given month.
 
     Parameters
     ----------
@@ -147,20 +120,17 @@ async def fetch_month(*, year: int, month: int, region: str = "QLD1") -> list[Ae
     httpx.HTTPStatusError
         If the AEMO server returns a non-2xx response.
     """
-    url = _AEMO_BASE.format(year=year, month=month)
-    logger.info("Fetching AEMO TRADINGPRICE: %s", url)
+    url = _AEMO_BASE.format(year=year, month=month, region=region)
+    logger.info("Fetching AEMO PRICE_AND_DEMAND: %s", url)
 
     async with httpx.AsyncClient(timeout=60.0) as client:
         response = await client.get(url)
         response.raise_for_status()
 
-    with zipfile.ZipFile(io.BytesIO(response.content)) as zf:
-        csv_name = next(n for n in zf.namelist() if n.upper().endswith(".CSV"))
-        with zf.open(csv_name) as f:
-            text = f.read().decode("utf-8", errors="replace")
-
-    prices = parse_tradingprice_csv(io.StringIO(text), region=region)
-    logger.info("Parsed %d %s price records for %d-%02d", len(prices), region, year, month)
+    prices = parse_price_demand_csv(io.StringIO(response.text), region=region)
+    logger.info(
+        "Parsed %d %s price records for %d-%02d", len(prices), region, year, month
+    )
     return prices
 
 
@@ -199,13 +169,9 @@ async def _main() -> None:
 
     try:
         today = date.today()
-        # Fetch previous month (AEMO publishes historical files with a short lag)
-        if today.month == 1:
-            year, month = today.year - 1, 12
-        else:
-            year, month = today.year, today.month - 1
-
-        prices = await fetch_month(year=year, month=month, region=settings.aemo_region)
+        prices = await fetch_month(
+            year=today.year, month=today.month, region=settings.aemo_region
+        )
         await store_prices(prices, db)
     finally:
         await db.disconnect()

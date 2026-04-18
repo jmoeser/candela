@@ -1,0 +1,34 @@
+<article>
+  <header><strong>Today</strong></header>
+  <div class="grid">
+    <div class="stat">
+      <span class="stat-value solar">{{ "%.1f"|format(solar_kwh | float) }}</span>
+      <span class="stat-label">Solar kWh</span>
+    </div>
+    <div class="stat">
+      <span class="stat-value importing">{{ "%.1f"|format(import_kwh | float) }}</span>
+      <span class="stat-label">Imported kWh</span>
+    </div>
+    <div class="stat">
+      <span class="stat-value exporting">{{ "%.1f"|format(export_kwh | float) }}</span>
+      <span class="stat-label">Exported kWh</span>
+    </div>
+  </div>
+  {% if cost_data %}
+  <div style="border-top: 1px solid var(--border-dim); margin-top: 14px; padding-top: 12px;">
+    <div class="grid">
+      <div class="stat">
+        <span class="stat-value importing">${{ "%.2f"|format(cost_data.total_dollars | float) }}</span>
+        <span class="stat-label">Today's Cost</span>
+      </div>
+      {% if cost_data.solar_savings_dollars is not none %}
+      <div class="stat">
+        <span class="stat-value exporting">${{ "%.2f"|format(cost_data.solar_savings_dollars | float) }}</span>
+        <span class="stat-label">Solar Savings</span>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+  <footer><small>{{ cost_data.plan_name }}</small></footer>
+  {% endif %}
+</article>
