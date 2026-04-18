@@ -14,7 +14,7 @@ jobs:
       - uses: astral-sh/setup-uv@v4
 
       - name: Install dependencies
-        run: uv sync --extra dev
+        run: uv sync --group dev
 
       - name: Ruff check
         run: uv run ruff check .
@@ -23,7 +23,7 @@ jobs:
         run: uv run ruff format --check .
 
       - name: Mypy
-        run: uv run mypy app/
+        run: uv run mypy candela/
 
   test:
     runs-on: ubuntu-latest
@@ -38,10 +38,10 @@ jobs:
       - uses: astral-sh/setup-uv@v4
 
       - name: Install dependencies
-        run: uv sync --extra dev
+        run: uv sync --group dev
 
       - name: Run tests
-        run: uv run pytest --cov=app --cov-report=term-missing
+        run: uv run pytest --cov=candela --cov-report=term-missing
 
   docker-build:
     runs-on: ubuntu-latest

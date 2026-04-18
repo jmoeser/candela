@@ -8,10 +8,12 @@ import json
 import logging
 from datetime import UTC, date, datetime, time
 from decimal import Decimal
+from typing import Any
 
 from candela.collector.aemo import AemoPrice
 from candela.db import Database
 from candela.tariffs.models import BillResult, SolarReading, TariffPlan, TariffRate
+from candela.tariffs.strategies.base import TariffStrategy
 from candela.tariffs.strategies.demand import DemandStrategy
 from candela.tariffs.strategies.single_rate import SingleRateStrategy
 from candela.tariffs.strategies.tou import TOUStrategy
@@ -19,7 +21,7 @@ from candela.tariffs.strategies.wholesale import WholesaleStrategy
 
 logger = logging.getLogger(__name__)
 
-_STRATEGIES = {
+_STRATEGIES: dict[str, TariffStrategy] = {
     "single_rate": SingleRateStrategy(),
     "tou": TOUStrategy(),
     "demand": DemandStrategy(),
@@ -70,10 +72,10 @@ async def compute_bill(
     if plan.plan_type == "wholesale":
         aemo_prices = await _fetch_aemo_prices(date_from, date_to, db)
         adder = wholesale_adder if wholesale_adder is not None else Decimal("18.0")
-        strategy = WholesaleStrategy(wholesale_adder_cents_per_kwh=adder)
-        return strategy.compute(readings, plan, rates, aemo_prices=aemo_prices)
+        ws_strategy = WholesaleStrategy(wholesale_adder_cents_per_kwh=adder)
+        return ws_strategy.compute(readings, plan, rates, aemo_prices=aemo_prices)
 
-    strategy = _STRATEGIES.get(plan.plan_type)
+    strategy: TariffStrategy | None = _STRATEGIES.get(plan.plan_type)
     if strategy is None:
         raise ValueError(f"Unknown plan type: {plan.plan_type!r}")
 
@@ -116,7 +118,7 @@ async def _fetch_rates(plan_id: int, db: Database) -> list[TariffRate]:
     return [_row_to_rate(r) for r in rows]
 
 
-def _row_to_rate(row: object) -> TariffRate:
+def _row_to_rate(row: Any) -> TariffRate:
     return TariffRate(
         id=int(row["id"]),
         plan_id=int(row["plan_id"]),
@@ -159,7 +161,7 @@ async def _fetch_readings(
     return [_row_to_reading(r) for r in rows]
 
 
-def _row_to_reading(row: object) -> SolarReading:
+def _row_to_reading(row: Any) -> SolarReading:
     ts_raw = str(row["ts"])
     # Handle both "Z" suffix and "+00:00" offset
     if ts_raw.endswith("Z"):
@@ -212,7 +214,7 @@ async def _fetch_aemo_prices(
     return [_row_to_aemo_price(r) for r in rows]
 
 
-def _row_to_aemo_price(row: object) -> AemoPrice:
+def _row_to_aemo_price(row: Any) -> AemoPrice:
     def _parse_ts(raw: str) -> datetime:
         if raw.endswith("Z"):
             raw = raw[:-1] + "+00:00"
@@ -249,7 +251,7 @@ async def fetch_aemo_prices(
     return await _fetch_aemo_prices(date_from, date_to, db)
 
 
-def _parse_time(value: object) -> time | None:
+def _parse_time(value: Any) -> time | None:
     if value is None:
         return None
     s = str(value)
