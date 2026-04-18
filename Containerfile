@@ -15,6 +15,11 @@ RUN uv sync --frozen --no-dev
 COPY candela/ ./candela/
 COPY migrations/ ./migrations/
 COPY alembic.ini ./
+COPY entrypoint.sh ./
+RUN chmod +x entrypoint.sh
+
+# Run Alembic migrations before starting any process.
+ENTRYPOINT ["./entrypoint.sh"]
 
 # Both Quadlet units use this image; CMD is overridden per unit.
 # Default: run the web server.
