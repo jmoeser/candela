@@ -111,6 +111,7 @@ class Database:
             logger.debug("SQLite connection opened: %s", path)
         else:
             import asyncpg  # noqa: PLC0415 — lazy import avoids hard dep in dev
+
             self._pg_pool = await asyncpg.create_pool(_pg_dsn(self._url))
             logger.debug("asyncpg pool opened")
 
@@ -129,7 +130,9 @@ class Database:
     # Query helpers
     # ------------------------------------------------------------------
 
-    def _pg_params(self, sql: str, args: tuple[Any, ...]) -> tuple[str, tuple[Any, ...]]:
+    def _pg_params(
+        self, sql: str, args: tuple[Any, ...]
+    ) -> tuple[str, tuple[Any, ...]]:
         """Replace ``?`` placeholders with ``$1, $2, ...`` for asyncpg."""
         idx = 0
 

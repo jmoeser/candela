@@ -179,9 +179,7 @@ def _maybe_record_event(
         return
 
     avg_w = int(sum(r.load_w for r in event_readings) / len(event_readings))
-    kwh_val = sum(
-        r.load_w * INTERVAL_MINUTES / 60.0 / 1000.0 for r in event_readings
-    )
+    kwh_val = sum(r.load_w * INTERVAL_MINUTES / 60.0 / 1000.0 for r in event_readings)
     completed.append(
         LoadEvent(
             id=None,
@@ -211,8 +209,8 @@ def _row_to_reading(row: object) -> SolarReading:
     return SolarReading(
         ts=ts,
         solar_w=int(row["solar_w"]),  # type: ignore[index]
-        grid_w=int(row["grid_w"]),    # type: ignore[index]
-        load_w=int(row["load_w"]),    # type: ignore[index]
+        grid_w=int(row["grid_w"]),  # type: ignore[index]
+        load_w=int(row["load_w"]),  # type: ignore[index]
     )
 
 

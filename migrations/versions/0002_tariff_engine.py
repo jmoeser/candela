@@ -61,9 +61,7 @@ def upgrade() -> None:
         sa.Column("months", sa.Text(), nullable=True),
         sa.Column("demand_window_start", sa.Time(), nullable=True),
         sa.Column("demand_window_end", sa.Time(), nullable=True),
-        sa.ForeignKeyConstraint(
-            ["plan_id"], ["tariff_plans.id"], ondelete="CASCADE"
-        ),
+        sa.ForeignKeyConstraint(["plan_id"], ["tariff_plans.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
     )
 
@@ -72,9 +70,7 @@ def upgrade() -> None:
         sa.Column("interval_start", sa.DateTime(timezone=True), nullable=False),
         sa.Column("interval_end", sa.DateTime(timezone=True), nullable=False),
         sa.Column("rrp_per_mwh", sa.Numeric(10, 4), nullable=False),
-        sa.Column(
-            "region", sa.Text(), nullable=False, server_default="QLD1"
-        ),
+        sa.Column("region", sa.Text(), nullable=False, server_default="QLD1"),
         sa.PrimaryKeyConstraint("interval_start", "region"),
     )
 

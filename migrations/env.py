@@ -30,9 +30,8 @@ if not _raw_url:
     )
 
 # Translate async driver names → sync equivalents for Alembic's synchronous engine.
-_sync_url = (
-    _raw_url.replace("postgresql+asyncpg://", "postgresql+psycopg2://")
-    .replace("sqlite+aiosqlite://", "sqlite://")
+_sync_url = _raw_url.replace("postgresql+asyncpg://", "postgresql+psycopg2://").replace(
+    "sqlite+aiosqlite://", "sqlite://"
 )
 
 config.set_main_option("sqlalchemy.url", _sync_url)

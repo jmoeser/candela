@@ -7,7 +7,13 @@ and a daily supply charge.
 from decimal import Decimal
 
 from candela.collector.aemo import AemoPrice
-from candela.tariffs.models import BillResult, PeriodResult, SolarReading, TariffPlan, TariffRate
+from candela.tariffs.models import (
+    BillResult,
+    PeriodResult,
+    SolarReading,
+    TariffPlan,
+    TariffRate,
+)
 from candela.tariffs.strategies.base import (
     reading_export_kwh,
     reading_import_kwh,

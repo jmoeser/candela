@@ -20,12 +20,17 @@ from collections import defaultdict
 from decimal import Decimal
 
 from candela.collector.aemo import AemoPrice
-from candela.tariffs.models import BillResult, PeriodResult, SolarReading, TariffPlan, TariffRate
+from candela.tariffs.models import (
+    BillResult,
+    PeriodResult,
+    SolarReading,
+    TariffPlan,
+    TariffRate,
+)
 from candela.tariffs.strategies.base import (
     _INTERVAL_HOURS,
     block_start_for,
     match_rate,
-    rate_applies,
     reading_export_kwh,
     reading_import_kwh,
     supply_charge_cents,
@@ -84,7 +89,11 @@ class DemandStrategy:
                 # Check if reading falls within demand window
                 if not _in_demand_window(reading, demand_rate):
                     continue
-                imp_kwh = Decimal(str(max(reading.grid_w, 0))) * Decimal(str(_INTERVAL_HOURS)) / Decimal("1000")
+                imp_kwh = (
+                    Decimal(str(max(reading.grid_w, 0)))
+                    * Decimal(str(_INTERVAL_HOURS))
+                    / Decimal("1000")
+                )
                 key = block_start_for(reading.ts)
                 block_kwh[key] += imp_kwh
 
