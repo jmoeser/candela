@@ -14,7 +14,7 @@ dependencies = [
     "pydantic-settings>=2.13.1",
     "python-multipart>=0.0.26",
     "itsdangerous>=2.2.0",
-    "uvicorn[standard]>=0.44.0",
+    "uvicorn[standard]>=0.46.0",
 ]
 
 [dependency-groups]
