@@ -24,9 +24,15 @@ jobs:
 
       - name: Determine next version
         id: version
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          # Get the latest tag, default to v0.0.0 if none exists
-          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+          # Query GitHub directly for the latest release tag (avoids git describe
+          # missing tags created via the Releases API)
+          LATEST_TAG=$(gh release list --limit 1 --json tagName --jq '.[0].tagName' 2>/dev/null || echo "")
+          if [ -z "$LATEST_TAG" ]; then
+            LATEST_TAG="v0.0.0"
+          fi
           echo "Latest tag: $LATEST_TAG"
 
           # Strip the 'v' prefix and split into parts
