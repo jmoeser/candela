@@ -94,9 +94,10 @@ def compute_load_event_cost(
             (r for r in rates if r.rate_type == "flat" and r.cents_per_kwh is not None),
             None,
         )
-        if flat is None:
+        if flat is None or flat.cents_per_kwh is None:
             return None
-        return float(kwh * flat.cents_per_kwh)  # type: ignore[operator]
+        cents_per_kwh = flat.cents_per_kwh
+        return float(kwh * cents_per_kwh)
 
     # demand plans share TOU energy rates — compute energy cost, skip demand charge
     if plan.plan_type in ("tou", "demand", "wholesale"):

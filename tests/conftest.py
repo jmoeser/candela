@@ -6,6 +6,7 @@ the ``client`` fixture wraps the FastAPI app with ``get_db`` overridden.
 """
 
 import os
+from collections.abc import AsyncIterator
 
 # Must be set before any app code is imported so pydantic-settings can read them.
 os.environ.setdefault("DATABASE_URL", "sqlite+aiosqlite:///:memory:")
@@ -110,7 +111,7 @@ async def make_test_db() -> Database:
 
 
 @pytest.fixture
-async def db() -> Database:  # type: ignore[misc]
+async def db() -> AsyncIterator[Database]:
     """In-memory SQLite database with all tables, disconnected after the test."""
     test_db = await make_test_db()
     yield test_db
@@ -118,7 +119,7 @@ async def db() -> Database:  # type: ignore[misc]
 
 
 @pytest.fixture
-async def client(db: Database):  # type: ignore[misc]
+async def client(db: Database) -> AsyncIterator[AsyncClient]:
     """AsyncClient for the FastAPI app with ``get_db`` overridden to the test DB.
 
     Auth dependencies are bypassed so tests don't need to log in.

@@ -136,7 +136,7 @@ class Database:
         """Replace ``?`` placeholders with ``$1, $2, ...`` for asyncpg."""
         idx = 0
 
-        def replace(_: re.Match) -> str:  # type: ignore[type-arg]
+        def replace(_: re.Match[str]) -> str:
             nonlocal idx
             idx += 1
             return f"${idx}"

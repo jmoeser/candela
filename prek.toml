@@ -1,0 +1,48 @@
+# Configuration file for `prek`, a git hook framework written in Rust.
+# See https://prek.j178.dev for more information.
+#:schema https://www.schemastore.org/prek.json
+
+[[repos]]
+repo = "https://github.com/astral-sh/ruff-pre-commit"
+rev = "v0.15.13"
+hooks = [
+  {
+    id = "ruff-check",
+    args = ["--fix"],
+  },
+  { id = "ruff-format" },
+]
+
+[[repos]]
+repo = "local"
+hooks = [
+  {
+    id = "pytest",
+    name = "pytest",
+    entry = "uv run pytest",
+    language = "system",
+    pass_filenames = false,
+    always_run = true,
+  },
+  {
+    id = "pyrefly",
+    name = "pyrefly",
+    entry = "uv run pyrefly check candela/ tests/",
+    language = "system",
+    pass_filenames = false,
+    always_run = true,
+  },
+]
+
+[[repos]]
+repo = "https://github.com/pre-commit/pre-commit-hooks"
+rev = "v5.0.0"
+hooks = [
+  { id = "check-merge-conflict" },
+  {
+    id = "check-added-large-files",
+    args = ["--maxkb=500"],
+  },
+  { id = "end-of-file-fixer" },
+  { id = "trailing-whitespace" },
+]

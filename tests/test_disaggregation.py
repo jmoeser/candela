@@ -202,7 +202,9 @@ def test_detect_ev_kwh_calculated() -> None:
 
     ev_events = [e for e in events if e.load_name == "ev_charging"]
     assert len(ev_events) == 1
-    assert float(ev_events[0].kwh) == pytest.approx(3.0, rel=1e-3)
+    kwh = ev_events[0].kwh
+    assert kwh is not None
+    assert float(kwh) == pytest.approx(3.0, rel=1e-3)
 
 
 def test_detect_no_events_at_baseline() -> None:
@@ -265,8 +267,12 @@ def test_detect_ev_and_hot_water_overlap() -> None:
     assert len(hw_events) == 1, f"Expected 1 HW event, got {len(hw_events)}"
 
     # EV event spans the whole charging session; HW only the overlap window
-    ev_dur = (ev_events[0].ended_at - ev_events[0].started_at).total_seconds()
-    hw_dur = (hw_events[0].ended_at - hw_events[0].started_at).total_seconds()
+    ev_end = ev_events[0].ended_at
+    hw_end = hw_events[0].ended_at
+    assert ev_end is not None
+    assert hw_end is not None
+    ev_dur = (ev_end - ev_events[0].started_at).total_seconds()
+    hw_dur = (hw_end - hw_events[0].started_at).total_seconds()
     assert ev_dur > hw_dur
 
 

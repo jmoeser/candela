@@ -1,0 +1,135 @@
+{
+  $schema: "https://docs.renovatebot.com/renovate-schema.json",
+
+  extends: [
+    "config:recommended",
+    // Semver-classify SHA-pinned Actions; keep pinDigests=true.
+    "helpers:pinGitHubActionDigestsToSemver",
+    // Official regex managers for aqua.yaml (registry ref + packages).
+    // Pin the preset; bump it via Renovate like any other dep.
+    "github>aquaproj/aqua-renovate-config#2.13.0",
+    "docker:pinDigests",
+  ],
+
+  timezone: "Australia/Brisbane",
+  // No schedule:fortnightly preset exists. 1st + 15th 00:00-06:59 is the cron approximation.
+  // Widened to hour 6 so a late Mend hourly job is less likely to miss the day.
+  schedule: ["* * 1,15 * *"],
+
+  minimumReleaseAge: "7 days",
+  // Default since Renovate 42, stated so it cannot silently regress.
+  minimumReleaseAgeBehaviour: "timestamp-required",
+  internalChecksFilter: "strict",
+
+  automerge: false,
+
+  // App, not a library. Pin so uv cannot resolve past the version Renovate chose
+  // (rangeStrategy=bump + >= ranges let uv lock sqlalchemy 2.0.52 while Renovate wanted 2.0.51).
+  // https://github.com/renovatebot/renovate/issues/41624
+  rangeStrategy: "pin",
+
+  lockFileMaintenance: {
+    enabled: false,
+  },
+
+  // prek.toml is not a Renovate manager yet. Extract hook repo + rev so
+  // ruff / detect-secrets majors still group with the matching PyPI package.
+  customManagers: [
+    {
+      customType: "regex",
+      description: "prek.toml hook revisions",
+      managerFilePatterns: ["/(^|/)prek\\.toml$/"],
+      matchStrings: [
+        "repo = \"https://github.com/(?<depName>[^\"]+)\"\\s+rev = \"(?<currentValue>[^\"]+)\"",
+      ],
+      datasourceTemplate: "github-tags",
+    },
+  ],
+
+  labels: ["dependencies"],
+  assignees: ["jmoeser"],
+  reviewers: ["jmoeser"],
+  dependencyDashboard: true,
+  // Do not set commitMessagePrefix — it disables :semanticPrefixFixDepsChoreOthers
+  // (fix for runtime deps / security, chore for the rest).
+  commitBodyTable: true,
+
+  // Hosted app runs often; this only limits *new* PRs per hour during the window.
+  prHourlyLimit: 5,
+  prConcurrentLimit: 10,
+
+  vulnerabilityAlerts: {
+    enabled: true,
+    // Defensive: defaults already ungroup these over packageRules; say it anyway.
+    groupName: null,
+    // Bypass the 1st/15th window. Age is already bypassed for vulns.
+    schedule: ["at any time"],
+  },
+
+  packageRules: [
+    {
+      description: "Do not treat requires-python as a routine dependency",
+      matchManagers: ["pep621"],
+      matchDepTypes: ["requires-python"],
+      enabled: false,
+    },
+    {
+      // pin/pinDigest have no release timestamp; age would hold them forever.
+      description: "Do not apply minimumReleaseAge to pin / pinDigest updates",
+      matchUpdateTypes: ["pin", "pinDigest"],
+      minimumReleaseAge: null,
+    },
+    {
+      description: "Keep ruff the package and the ruff-pre-commit hook on the same major PR",
+      matchPackageNames: ["ruff", "astral-sh/ruff-pre-commit"],
+      matchUpdateTypes: ["major"],
+      groupName: "ruff",
+    },
+    {
+      description: "Keep detect-secrets the package and the detect-secrets hook on the same major PR",
+      matchPackageNames: ["detect-secrets", "Yelp/detect-secrets"],
+      matchUpdateTypes: ["major"],
+      groupName: "detect-secrets",
+    },
+    {
+      // Near-last: win over group:monorepos / group:recommended from config:recommended.
+      // Stock group:allNonMajor is only minor+patch; we also want digest/pinDigest in the batch.
+      // Exclude both uv toolchain package names so they cannot enter this group.
+      // Do not add "*" here — Renovate 44 rejects "*" mixed with other patterns; "!name" already means all-except.
+      // No per-rule schedule — top-level cron already gates this *and* majors (same window, different PRs).
+      description: "Single fortnightly PR for every non-major update except the uv toolchain",
+      matchPackageNames: ["!ghcr.io/astral-sh/uv", "!astral-sh/uv"],
+      matchUpdateTypes: ["minor", "patch", "digest", "pinDigest"],
+      groupName: "all non-major dependencies",
+      groupSlug: "all-minor-patch",
+    },
+    {
+      // After the batch rule. All update types so aqua + image + CI version never split,
+      // including 0.x minors and a future 1.x major.
+      // Do NOT set timestamp-optional here — that would void 7-day age on the GitHub release.
+      description: "One source of truth: aqua astral-sh/uv + GHCR image + CI setup-uv with.version",
+      matchPackageNames: ["astral-sh/uv", "ghcr.io/astral-sh/uv"],
+      matchUpdateTypes: ["patch", "minor", "major", "digest", "pinDigest"],
+      groupName: "uv",
+      groupSlug: "uv",
+    },
+    {
+      // Docker member only. GHCR has no timestamps (#39064); without this the group is held forever.
+      // The GitHub release of astral-sh/uv remains timestamp-required (global default) and is the 7-day clock.
+      description: "GHCR uv image has no release timestamp; do not block the uv group on it",
+      matchDatasources: ["docker"],
+      matchPackageNames: ["ghcr.io/astral-sh/uv"],
+      minimumReleaseAgeBehaviour: "timestamp-optional",
+    },
+    {
+      // After the batch rule so groupName wins for python minors (3.14 → 3.15 is minor, not major).
+      // Do not match datasource python-version — github-actions may attach docker / uses-with instead.
+      // Digest-only 3.14-slim rebuilds do not match and stay in the batch.
+      description: "Isolate Python runtime line (3.14 → 3.15 is minor). Dashboard-gate. Bump requires-python and [tool.pyrefly] python-version in the same PR before merge.",
+      matchPackageNames: ["python"],
+      matchUpdateTypes: ["minor", "major"],
+      groupName: "python runtime",
+      dependencyDashboardApproval: true,
+    },
+  ],
+}

@@ -1,2 +1,34 @@
 # Default owner for everything
 * @jmoeser
+
+# Security-critical: authentication
+candela/auth.py @jmoeser
+
+# Database and migrations
+candela/db.py @jmoeser
+migrations/ @jmoeser
+
+# Project configuration and dependencies
+pyproject.toml @jmoeser
+uv.lock @jmoeser
+renovate.json5 @jmoeser
+aqua.yaml @jmoeser
+alembic.ini @jmoeser
+
+# Container and deployment
+Containerfile @jmoeser
+entrypoint.sh @jmoeser
+quadlet/ @jmoeser
+
+# CI/CD pipelines
+.github/workflows/ @jmoeser
+
+# Secrets and hook tooling
+prek.toml @jmoeser
+.env.example @jmoeser
+
+# Project instructions
+CLAUDE.md @jmoeser
+
+# Admin scripts
+scripts/ @jmoeser

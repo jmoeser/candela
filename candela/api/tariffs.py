@@ -9,8 +9,9 @@ GET    /api/v1/compare?plan_ids=&from=&to= compute bills for multiple plans side
 
 import json
 import logging
+from collections.abc import Mapping
 from datetime import date, timedelta
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
@@ -99,25 +100,23 @@ class CompareResult(BaseModel):
 # ---------------------------------------------------------------------------
 
 
-def _row_to_plan_out(row: object) -> PlanOut:
+def _row_to_plan_out(row: Mapping[str, Any]) -> PlanOut:
     return PlanOut(
-        id=int(row["id"]),  # type: ignore[index]
-        name=str(row["name"]),  # type: ignore[index]
-        retailer=str(row["retailer"]) if row["retailer"] else None,  # type: ignore[index]
-        plan_type=str(row["plan_type"]),  # type: ignore[index]
-        supply_charge_daily_cents=float(row["supply_charge_daily_cents"]),  # type: ignore[index]
+        id=int(row["id"]),
+        name=str(row["name"]),
+        retailer=str(row["retailer"]) if row["retailer"] else None,
+        plan_type=str(row["plan_type"]),
+        supply_charge_daily_cents=float(row["supply_charge_daily_cents"]),
         feed_in_tariff_cents=(
-            float(row["feed_in_tariff_cents"])  # type: ignore[index]
-            if row["feed_in_tariff_cents"] is not None  # type: ignore[index]
+            float(row["feed_in_tariff_cents"])
+            if row["feed_in_tariff_cents"] is not None
             else None
         ),
-        valid_from=date.fromisoformat(str(row["valid_from"])),  # type: ignore[index]
+        valid_from=date.fromisoformat(str(row["valid_from"])),
         valid_to=(
-            date.fromisoformat(str(row["valid_to"]))  # type: ignore[index]
-            if row["valid_to"]  # type: ignore[index]
-            else None
+            date.fromisoformat(str(row["valid_to"])) if row["valid_to"] else None
         ),
-        notes=str(row["notes"]) if row["notes"] else None,  # type: ignore[index]
+        notes=str(row["notes"]) if row["notes"] else None,
     )
 
 
@@ -159,7 +158,7 @@ async def create_plan(
         plan.name,
     )
     assert row is not None
-    plan_id = int(row["id"])  # type: ignore[index]
+    plan_id = int(row["id"])
 
     for rate in plan.rates:
         await db.execute(

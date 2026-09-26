@@ -49,6 +49,15 @@ All configuration is via environment variables (or a `.env` file).
 
 ## Development
 
+Dependency updates are batched by Renovate (`renovate.json5`); CI on the PR is the gate. Python dependencies are exact pins. Dependabot version updates are not used.
+
+Hooks are managed by [prek](https://prek.j178.dev/) (`prek.toml`). After `uv sync`:
+
+```bash
+uv run prek install
+uv run prek run --all-files
+```
+
 ```bash
 uv run pytest                                         # run all tests
 uv run pytest tests/test_aemo.py::test_name -v       # single test

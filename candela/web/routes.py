@@ -55,10 +55,10 @@ _INTERVAL_H = 5 / 60
 # ---------------------------------------------------------------------------
 
 
-@router.get("/login", response_class=HTMLResponse)
-async def login_page(request: Request) -> HTMLResponse:
+@router.get("/login", response_class=HTMLResponse, response_model=None)
+async def login_page(request: Request) -> HTMLResponse | RedirectResponse:
     if request.session.get("authenticated"):
-        return RedirectResponse("/", status_code=303)  # type: ignore[return-value]
+        return RedirectResponse("/", status_code=303)
     return templates.TemplateResponse(request=request, name="login.html", context={})
 
 

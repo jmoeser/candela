@@ -5,8 +5,9 @@ GET  /api/v1/readings/latest                      most recent reading (or null)
 """
 
 import logging
+from collections.abc import Mapping
 from datetime import UTC, date, datetime
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
@@ -35,8 +36,8 @@ class ReadingsResponse(BaseModel):
     count: int
 
 
-def _row_to_reading(row: object) -> ReadingOut:
-    ts_raw = str(row["ts"])  # type: ignore[index]
+def _row_to_reading(row: Mapping[str, Any]) -> ReadingOut:
+    ts_raw = str(row["ts"])
     if ts_raw.endswith("Z"):
         ts_raw = ts_raw[:-1] + "+00:00"
     ts = datetime.fromisoformat(ts_raw)
@@ -44,22 +45,22 @@ def _row_to_reading(row: object) -> ReadingOut:
         ts = ts.replace(tzinfo=UTC)
     return ReadingOut(
         ts=ts,
-        solar_w=int(row["solar_w"]),  # type: ignore[index]
-        grid_w=int(row["grid_w"]),  # type: ignore[index]
-        load_w=int(row["load_w"]),  # type: ignore[index]
+        solar_w=int(row["solar_w"]),
+        grid_w=int(row["grid_w"]),
+        load_w=int(row["load_w"]),
         daily_yield_kwh=(
-            float(row["daily_yield_kwh"])  # type: ignore[index]
-            if row["daily_yield_kwh"] is not None  # type: ignore[index]
+            float(row["daily_yield_kwh"])
+            if row["daily_yield_kwh"] is not None
             else None
         ),
         total_yield_kwh=(
-            float(row["total_yield_kwh"])  # type: ignore[index]
-            if row["total_yield_kwh"] is not None  # type: ignore[index]
+            float(row["total_yield_kwh"])
+            if row["total_yield_kwh"] is not None
             else None
         ),
         inverter_temp_c=(
-            float(row["inverter_temp_c"])  # type: ignore[index]
-            if row["inverter_temp_c"] is not None  # type: ignore[index]
+            float(row["inverter_temp_c"])
+            if row["inverter_temp_c"] is not None
             else None
         ),
     )

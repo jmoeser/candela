@@ -7,8 +7,9 @@ GET   /api/v1/wholesale/prices?from=&to=        AEMO price data
 """
 
 import logging
+from collections.abc import Mapping
 from datetime import UTC, date, datetime
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
@@ -84,32 +85,18 @@ def _parse_ts(raw: str) -> datetime:
     return dt if dt.tzinfo else dt.replace(tzinfo=UTC)
 
 
-def _row_to_event(row: object) -> LoadEventOut:
+def _row_to_event(row: Mapping[str, Any]) -> LoadEventOut:
     return LoadEventOut(
-        id=int(row["id"]),  # type: ignore[index]
-        started_at=_parse_ts(str(row["started_at"])),  # type: ignore[index]
-        ended_at=(
-            _parse_ts(str(row["ended_at"]))  # type: ignore[index]
-            if row["ended_at"]  # type: ignore[index]
-            else None
-        ),
-        load_name=str(row["load_name"]),  # type: ignore[index]
-        avg_watts=(
-            int(row["avg_watts"])  # type: ignore[index]
-            if row["avg_watts"] is not None  # type: ignore[index]
-            else None
-        ),
-        kwh=(
-            float(row["kwh"])  # type: ignore[index]
-            if row["kwh"] is not None  # type: ignore[index]
-            else None
-        ),
+        id=int(row["id"]),
+        started_at=_parse_ts(str(row["started_at"])),
+        ended_at=(_parse_ts(str(row["ended_at"])) if row["ended_at"] else None),
+        load_name=str(row["load_name"]),
+        avg_watts=(int(row["avg_watts"]) if row["avg_watts"] is not None else None),
+        kwh=(float(row["kwh"]) if row["kwh"] is not None else None),
         confidence=(
-            float(row["confidence"])  # type: ignore[index]
-            if row["confidence"] is not None  # type: ignore[index]
-            else None
+            float(row["confidence"]) if row["confidence"] is not None else None
         ),
-        source=str(row["source"]),  # type: ignore[index]
+        source=str(row["source"]),
     )
 
 

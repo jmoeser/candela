@@ -24,8 +24,10 @@ This lets EV + hot water events be detected simultaneously.
 
 import logging
 import statistics
+from collections.abc import Mapping
 from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
+from typing import Any
 
 from candela.db import Database
 from candela.disaggregation.models import KNOWN_LOADS, LoadEvent
@@ -199,8 +201,8 @@ def _maybe_record_event(
 # ---------------------------------------------------------------------------
 
 
-def _row_to_reading(row: object) -> SolarReading:
-    ts_raw = str(row["ts"])  # type: ignore[index]
+def _row_to_reading(row: Mapping[str, Any]) -> SolarReading:
+    ts_raw = str(row["ts"])
     if ts_raw.endswith("Z"):
         ts_raw = ts_raw[:-1] + "+00:00"
     ts = datetime.fromisoformat(ts_raw)
@@ -208,9 +210,9 @@ def _row_to_reading(row: object) -> SolarReading:
         ts = ts.replace(tzinfo=UTC)
     return SolarReading(
         ts=ts,
-        solar_w=int(row["solar_w"]),  # type: ignore[index]
-        grid_w=int(row["grid_w"]),  # type: ignore[index]
-        load_w=int(row["load_w"]),  # type: ignore[index]
+        solar_w=int(row["solar_w"]),
+        grid_w=int(row["grid_w"]),
+        load_w=int(row["load_w"]),
     )
 
 

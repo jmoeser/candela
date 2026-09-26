@@ -8,7 +8,7 @@ Always run these before reporting done:
 
 ```bash
 uv run pytest
-uv run mypy candela/
+uv run pyrefly check candela/ tests/
 ```
 
 ## Commands
@@ -19,6 +19,11 @@ uv run uvicorn candela.main:app --reload       # run dev server
 uv run pytest                                  # run all tests
 uv run pytest tests/test_db.py::test_name -v  # run a single test
 uv run coverage run -m pytest && uv run coverage report  # tests with coverage
+uv run ruff check .                            # lint
+uv run ruff format --check .                   # format check
+uv run pyrefly check candela/ tests/                           # type check
+uv run prek install                            # install git hooks
+uv run prek run --all-files                    # run git hooks
 DATABASE_URL=... uv run alembic upgrade head   # run migrations
 DATABASE_URL=... uv run alembic revision --autogenerate -m "description"  # new migration
 ```
@@ -59,3 +64,22 @@ Pydantic Settings; all config from environment variables or `.env` file. `get_se
 ### Deployment
 
 Two Podman Quadlet units in `quadlet/`: `candela-web.container` (runs `alembic upgrade head` then uvicorn) and `candela-collector.container` (runs `python -m candela.collector.poller`, depends on web). Both read env from `/etc/candela/candela.env`.
+
+## Git hooks (prek)
+
+Hooks run on `git commit` via [prek](https://prek.j178.dev/) (`prek.toml`). Install with `uv run prek install`. Run manually with `uv run prek run --all-files`.
+
+- **ruff**: lint with auto-fix, then format.
+- **pytest** and **pyrefly**: full test suite and type check (`language = system`, so they use the project venv).
+- **pre-commit-hooks**: merge conflict markers, large files (>500KB), EOF newlines, trailing whitespace.
+
+## Dependency updates
+
+Hosted [Mend Renovate](https://github.com/apps/renovate); config is `renovate.json5`. Dependabot version updates are not used; keep the GitHub dependency graph and Dependabot alerts.
+
+- One non-major PR on the 1st and 15th (`Australia/Brisbane`). Majors are separate PRs in the same window. Nothing automerges.
+- Python dependencies are exact pins (`==`) so `uv lock` cannot jump past the version Renovate selected (`rangeStrategy: "pin"`).
+- uv toolchain (`aqua.yaml` `astral-sh/uv`, GHCR `ghcr.io/astral-sh/uv` image, CI `setup-uv` `version:`) is always one isolated `uv` PR (all update types, including 0.x minors and 1.x).
+- Python `3.14` → `3.15` is a **minor**, isolated as `python runtime` and Dashboard-gated. Do not merge until `requires-python` and `[tool.pyrefly] python-version` move in the same commit.
+- `minimumReleaseAge: "7 days"` where the registry publishes timestamps. The GitHub release of `astral-sh/uv` is the clock for the uv group (GHCR is timestamp-optional on that docker member only).
+- Pending updates live on the Dependency Dashboard issue. Dashboard “Run now” starts a job; it does **not** skip the schedule for new PRs.
