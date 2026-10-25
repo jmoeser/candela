@@ -39,7 +39,7 @@ class TOUStrategy:
         energy_rates = [r for r in rates if r.rate_type != "demand"]
 
         kwh_by_period: dict[str, Decimal] = defaultdict(Decimal)
-        export_kwh = Decimal("0")
+        export_kwh = Decimal(0)
 
         for reading in readings:
             imp = reading_import_kwh(reading)
@@ -57,16 +57,16 @@ class TOUStrategy:
         rate_by_type: dict[str, TariffRate] = {r.rate_type: r for r in energy_rates}
 
         period_breakdown: dict[str, PeriodResult] = {}
-        total_import_cents = Decimal("0")
+        total_import_cents = Decimal(0)
 
         for period, kwh in kwh_by_period.items():
             rate = rate_by_type.get(period)
-            cpkwh = rate.cents_per_kwh if rate and rate.cents_per_kwh else Decimal("0")
+            cpkwh = rate.cents_per_kwh if rate and rate.cents_per_kwh else Decimal(0)
             cents = kwh * cpkwh
             period_breakdown[period] = PeriodResult(kwh=kwh, cents=cents)
             total_import_cents += cents
 
-        export_cents = export_kwh * (plan.feed_in_tariff_cents or Decimal("0"))
+        export_cents = export_kwh * (plan.feed_in_tariff_cents or Decimal(0))
         sc = supply_charge_cents(plan, readings)
 
         return BillResult(
@@ -74,6 +74,6 @@ class TOUStrategy:
             supply_charge_cents=sc,
             import_charge_cents=total_import_cents,
             export_credit_cents=export_cents,
-            demand_charge_cents=Decimal("0"),
+            demand_charge_cents=Decimal(0),
             period_breakdown=period_breakdown,
         )

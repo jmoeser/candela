@@ -318,7 +318,7 @@ KNOWN_LOADS = [
     {
         "name": "ev_charging",
         "min_watts": 1800,
-        "max_watts": 8000,      # covers 10A outlet (~2.4kW) and Wall Connector (~7.2kW)
+        "max_watts": 8000,  # covers 10A outlet (~2.4kW) and Wall Connector (~7.2kW)
         "tolerance": 500,
         "min_duration_min": 20,
         # confirm_source: "tesla_api" — reserved for future Tesla Fleet API integration

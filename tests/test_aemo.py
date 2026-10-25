@@ -10,12 +10,11 @@ import pytest
 
 from candela.collector.aemo import (
     AemoPrice,
-    parse_price_demand_csv,
     fetch_month,
+    parse_price_demand_csv,
     store_prices,
 )
 from candela.db import Database
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -117,9 +116,11 @@ async def test_fetch_month_raises_on_http_error() -> None:
     mock_client.__aexit__ = AsyncMock(return_value=False)
     mock_client.get = AsyncMock(return_value=mock_response)
 
-    with patch("candela.collector.aemo.httpx.AsyncClient", return_value=mock_client):
-        with pytest.raises(httpx.HTTPStatusError):
-            await fetch_month(year=2026, month=4, region="QLD1")
+    with (
+        patch("candela.collector.aemo.httpx.AsyncClient", return_value=mock_client),
+        pytest.raises(httpx.HTTPStatusError),
+    ):
+        await fetch_month(year=2026, month=4, region="QLD1")
 
 
 # ---------------------------------------------------------------------------

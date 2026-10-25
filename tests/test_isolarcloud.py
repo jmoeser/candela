@@ -6,14 +6,13 @@ import httpx
 import pytest
 
 from candela.collector.isolarcloud import (
+    InverterReading,
     ISolarCloudClient,
     ISolarCloudError,
-    InverterReading,
     _parse_interval_data,
     _parse_realtime_reading,
     parse_isolarcloud_ts,
 )
-
 
 # ---------------------------------------------------------------------------
 # Mock transport helpers

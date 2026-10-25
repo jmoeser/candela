@@ -1,8 +1,9 @@
 """Tests for candela.config — pydantic-settings loading."""
 
 import os
-import pytest
 from unittest.mock import patch
+
+import pytest
 
 _REQUIRED = {
     "DATABASE_URL": "sqlite+aiosqlite:///./candela.db",

@@ -32,7 +32,7 @@ class TariffStrategy(Protocol):
 def supply_charge_cents(plan: TariffPlan, readings: list[SolarReading]) -> Decimal:
     """Return the supply charge for the date range spanned by *readings*."""
     if not readings:
-        return Decimal("0")
+        return Decimal(0)
     dates = {r.ts.date() for r in readings}
     days = (max(dates) - min(dates)).days + 1
     return plan.supply_charge_daily_cents * days
@@ -43,7 +43,7 @@ def reading_import_kwh(reading: SolarReading) -> Decimal:
     return (
         Decimal(str(max(reading.grid_w, 0)))
         * Decimal(str(_INTERVAL_HOURS))
-        / Decimal("1000")
+        / Decimal(1000)
     )
 
 
@@ -52,27 +52,21 @@ def reading_export_kwh(reading: SolarReading) -> Decimal:
     return (
         Decimal(str(max(-reading.grid_w, 0)))
         * Decimal(str(_INTERVAL_HOURS))
-        / Decimal("1000")
+        / Decimal(1000)
     )
 
 
 def rate_applies(rate: TariffRate, ts: datetime) -> bool:
     """Return True if *rate* applies at *ts* based on its time/day/month filters."""
     t = ts.time()
-
-    if rate.window_start is not None and rate.window_end is not None:
-        if not (rate.window_start <= t < rate.window_end):
-            return False
-
-    if rate.days_of_week is not None:
-        if ts.weekday() not in rate.days_of_week:
-            return False
-
-    if rate.months is not None:
-        if ts.month not in rate.months:
-            return False
-
-    return True
+    in_window = (
+        rate.window_start is None
+        or rate.window_end is None
+        or rate.window_start <= t < rate.window_end
+    )
+    in_days = rate.days_of_week is None or ts.weekday() in rate.days_of_week
+    in_months = rate.months is None or ts.month in rate.months
+    return in_window and in_days and in_months
 
 
 # Priority ordering for TOU period matching (lower = higher priority).

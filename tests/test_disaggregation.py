@@ -15,7 +15,6 @@ import pytest
 from candela.db import Database
 from candela.tariffs.models import SolarReading
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------

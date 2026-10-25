@@ -1,9 +1,9 @@
 """Candela FastAPI application entry point."""
 
 import logging
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import AsyncGenerator
 
 from fastapi import FastAPI, Request
 from fastapi.responses import RedirectResponse
@@ -29,7 +29,7 @@ def get_db() -> Database:
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
+async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     """Connect to the database on startup; disconnect on shutdown."""
     global _db
     s = get_settings()
@@ -70,11 +70,11 @@ app.mount("/static", StaticFiles(directory=_STATIC_DIR), name="static")
 # Routers
 # ---------------------------------------------------------------------------
 
-from candela.api import readings as _readings  # noqa: E402
-from candela.api import summary as _summary  # noqa: E402
-from candela.api import tariffs as _tariffs  # noqa: E402
-from candela.api import loads as _loads  # noqa: E402
-from candela.web import routes as _web  # noqa: E402
+from candela.api import loads as _loads
+from candela.api import readings as _readings
+from candela.api import summary as _summary
+from candela.api import tariffs as _tariffs
+from candela.web import routes as _web
 
 app.include_router(_readings.router, prefix="/api/v1", tags=["readings"])
 app.include_router(_summary.router, prefix="/api/v1", tags=["summary"])

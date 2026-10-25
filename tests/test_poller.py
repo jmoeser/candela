@@ -10,7 +10,6 @@ from candela.collector.isolarcloud import InverterReading
 from candela.collector.poller import poll_once
 from candela.db import Database
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
