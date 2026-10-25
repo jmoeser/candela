@@ -11,9 +11,8 @@ Migrations use render_as_batch=True so they work on both SQLite and PostgreSQL.
 import os
 from logging.config import fileConfig
 
-from sqlalchemy import engine_from_config, pool
-
 from alembic import context
+from sqlalchemy import engine_from_config, pool
 
 config = context.config
 

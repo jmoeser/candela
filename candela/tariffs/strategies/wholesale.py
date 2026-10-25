@@ -39,7 +39,7 @@ from candela.tariffs.strategies.base import (
     supply_charge_cents,
 )
 
-_MWH_TO_CENTS_PER_KWH = Decimal("10")  # divide rrp by this
+_MWH_TO_CENTS_PER_KWH = Decimal(10)  # divide rrp by this
 
 
 class WholesaleStrategy:
@@ -63,10 +63,10 @@ class WholesaleStrategy:
         for p in aemo_prices or []:
             price_lookup[p.interval_start] = Decimal(str(p.rrp_per_mwh))
 
-        total_import_cents = Decimal("0")
-        total_export_cents = Decimal("0")
-        import_kwh = Decimal("0")
-        export_kwh = Decimal("0")
+        total_import_cents = Decimal(0)
+        total_export_cents = Decimal(0)
+        import_kwh = Decimal(0)
+        export_kwh = Decimal(0)
 
         for reading in readings:
             block = reading.ts.replace(
@@ -79,12 +79,12 @@ class WholesaleStrategy:
             kwh_import = (
                 Decimal(str(max(reading.grid_w, 0)))
                 * Decimal(str(_INTERVAL_HOURS))
-                / Decimal("1000")
+                / Decimal(1000)
             )
             kwh_export = (
                 Decimal(str(max(-reading.grid_w, 0)))
                 * Decimal(str(_INTERVAL_HOURS))
-                / Decimal("1000")
+                / Decimal(1000)
             )
 
             if kwh_import > 0:
@@ -110,6 +110,6 @@ class WholesaleStrategy:
             supply_charge_cents=sc,
             import_charge_cents=total_import_cents,
             export_credit_cents=total_export_cents,
-            demand_charge_cents=Decimal("0"),
+            demand_charge_cents=Decimal(0),
             period_breakdown=period_breakdown,
         )

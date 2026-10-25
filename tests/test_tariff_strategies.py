@@ -102,19 +102,16 @@ def test_single_rate_import_only() -> None:
     result = SingleRateStrategy().compute(readings, plan, rates)
 
     expected_import_kwh = (
-        Decimal("1000")
-        * Decimal("12")
-        * Decimal(str(_INTERVAL_HOURS))
-        / Decimal("1000")
+        Decimal(1000) * Decimal(12) * Decimal(str(_INTERVAL_HOURS)) / Decimal(1000)
     )
-    expected_import_cents = expected_import_kwh * Decimal("30")
+    expected_import_cents = expected_import_kwh * Decimal(30)
 
-    assert result.supply_charge_cents == Decimal("100")
+    assert result.supply_charge_cents == Decimal(100)
     assert float(result.import_charge_cents) == pytest.approx(
         float(expected_import_cents), rel=1e-6
     )
-    assert result.export_credit_cents == Decimal("0")
-    assert result.demand_charge_cents == Decimal("0")
+    assert result.export_credit_cents == Decimal(0)
+    assert result.demand_charge_cents == Decimal(0)
     assert float(result.total_cents) == pytest.approx(
         float(
             result.supply_charge_cents
@@ -137,16 +134,16 @@ def test_single_rate_export_credit() -> None:
     result = SingleRateStrategy().compute(readings, plan, rates)
 
     export_kwh = (
-        Decimal("500") * Decimal("12") * Decimal(str(_INTERVAL_HOURS)) / Decimal("1000")
+        Decimal(500) * Decimal(12) * Decimal(str(_INTERVAL_HOURS)) / Decimal(1000)
     )
-    expected_credit = export_kwh * Decimal("10")
+    expected_credit = export_kwh * Decimal(10)
 
-    assert result.import_charge_cents == Decimal("0")
+    assert result.import_charge_cents == Decimal(0)
     assert float(result.export_credit_cents) == pytest.approx(
         float(expected_credit), rel=1e-6
     )
     assert float(result.total_cents) == pytest.approx(
-        float(Decimal("100") - expected_credit), rel=1e-6
+        float(Decimal(100) - expected_credit), rel=1e-6
     )
 
 
@@ -178,7 +175,7 @@ def test_single_rate_no_fit_means_no_export_credit() -> None:
 
     result = SingleRateStrategy().compute(readings, plan, rates)
 
-    assert result.export_credit_cents == Decimal("0")
+    assert result.export_credit_cents == Decimal(0)
 
 
 def test_single_rate_supply_spans_days() -> None:
@@ -195,7 +192,7 @@ def test_single_rate_supply_spans_days() -> None:
 
     result = SingleRateStrategy().compute(readings, plan, rates)
 
-    assert result.supply_charge_cents == Decimal("300")  # 3 days × 100 c
+    assert result.supply_charge_cents == Decimal(300)  # 3 days × 100 c
 
 
 # ---------------------------------------------------------------------------
@@ -224,7 +221,7 @@ def test_tou_peak_window() -> None:
     # Should not also appear in offpeak
     assert result.period_breakdown.get(
         "offpeak", None
-    ) is None or result.period_breakdown["offpeak"].kwh == Decimal("0")
+    ) is None or result.period_breakdown["offpeak"].kwh == Decimal(0)
 
 
 def test_tou_offpeak_window() -> None:
@@ -251,7 +248,7 @@ def test_tou_offpeak_window() -> None:
     assert result.period_breakdown["offpeak"].kwh > 0
     assert result.period_breakdown.get("peak") is None or result.period_breakdown[
         "peak"
-    ].kwh == Decimal("0")
+    ].kwh == Decimal(0)
 
 
 def test_tou_shoulder_window() -> None:
@@ -278,7 +275,7 @@ def test_tou_shoulder_window() -> None:
     assert result.period_breakdown["shoulder"].kwh > 0
     assert result.period_breakdown.get("peak") is None or result.period_breakdown[
         "peak"
-    ].kwh == Decimal("0")
+    ].kwh == Decimal(0)
 
 
 def test_tou_mixed_periods() -> None:
@@ -346,7 +343,7 @@ def test_tou_days_of_week_filter() -> None:
     # Wednesday is not in the peak rate's days_of_week, so falls to offpeak
     assert result.period_breakdown.get("peak") is None or result.period_breakdown[
         "peak"
-    ].kwh == Decimal("0")
+    ].kwh == Decimal(0)
     assert result.period_breakdown["offpeak"].kwh > 0
 
 
@@ -369,7 +366,7 @@ def test_tou_export_uses_fit() -> None:
     result = TOUStrategy().compute(readings, plan, rates)
 
     assert result.export_credit_cents > 0
-    assert result.import_charge_cents == Decimal("0")
+    assert result.import_charge_cents == Decimal(0)
 
 
 # ---------------------------------------------------------------------------
@@ -485,7 +482,7 @@ def test_demand_zero_when_no_readings_in_window() -> None:
 
     result = DemandStrategy().compute(readings, plan, rates)
 
-    assert result.demand_charge_cents == Decimal("0")
+    assert result.demand_charge_cents == Decimal(0)
 
 
 # ---------------------------------------------------------------------------
@@ -526,14 +523,14 @@ def test_wholesale_import_positive_price() -> None:
         [reading], plan, rates, aemo_prices=aemo_prices
     )
 
-    kwh = Decimal("1000") * Decimal(str(_INTERVAL_HOURS)) / Decimal("1000")
-    rate_cents_per_kwh = Decimal("100") / Decimal("10") + adder  # rrp/10 + adder
+    kwh = Decimal(1000) * Decimal(str(_INTERVAL_HOURS)) / Decimal(1000)
+    rate_cents_per_kwh = Decimal(100) / Decimal(10) + adder  # rrp/10 + adder
     expected_import = kwh * rate_cents_per_kwh
 
     assert float(result.import_charge_cents) == pytest.approx(
         float(expected_import), rel=1e-6
     )
-    assert result.export_credit_cents == Decimal("0")
+    assert result.export_credit_cents == Decimal(0)
 
 
 def test_wholesale_export_positive_price() -> None:
@@ -550,11 +547,11 @@ def test_wholesale_export_positive_price() -> None:
         [reading], plan, rates, aemo_prices=aemo_prices
     )
 
-    kwh = Decimal("1000") * Decimal(str(_INTERVAL_HOURS)) / Decimal("1000")
-    credit_rate = Decimal("80") * Decimal("0.7") / Decimal("10")
+    kwh = Decimal(1000) * Decimal(str(_INTERVAL_HOURS)) / Decimal(1000)
+    credit_rate = Decimal(80) * Decimal("0.7") / Decimal(10)
     expected_credit = kwh * credit_rate
 
-    assert result.import_charge_cents == Decimal("0")
+    assert result.import_charge_cents == Decimal(0)
     assert float(result.export_credit_cents) == pytest.approx(
         float(expected_credit), rel=1e-6
     )
@@ -612,7 +609,7 @@ def test_wholesale_reading_with_no_aemo_price_skipped() -> None:
         [reading], plan, rates, aemo_prices=aemo_prices
     )
 
-    assert result.import_charge_cents == Decimal("0")
+    assert result.import_charge_cents == Decimal(0)
 
 
 def test_wholesale_supply_charge_applied() -> None:
@@ -632,4 +629,4 @@ def test_wholesale_supply_charge_applied() -> None:
         readings, plan, rates, aemo_prices=aemo_prices
     )
 
-    assert result.supply_charge_cents == Decimal("300")  # 2 days × 150 c
+    assert result.supply_charge_cents == Decimal(300)  # 2 days × 150 c

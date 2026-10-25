@@ -25,7 +25,7 @@ class Settings(BaseSettings):
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
 
 
-def get_settings() -> "Settings":
+def get_settings() -> Settings:
     """Return the application settings. Reads from environment on each call.
 
     In application code, cache via ``functools.lru_cache`` on the call site if

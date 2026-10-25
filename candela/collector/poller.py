@@ -19,12 +19,12 @@ refresh rate wastes API calls and risks rate limiting.
 
 import asyncio
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 from candela.collector.aemo import fetch_month, store_prices
-from candela.collector.isolarcloud import ISolarCloudClient, InverterReading
+from candela.collector.isolarcloud import InverterReading, ISolarCloudClient
 from candela.config import get_settings
 from candela.db import Database
 
@@ -44,7 +44,7 @@ async def poll_once(client: ISolarCloudClient, db: Database) -> None:
     try:
         reading = await client.fetch_current_reading()
     except Exception:
-        logger.error("Failed to fetch current reading from iSolarCloud", exc_info=True)
+        logger.exception("Failed to fetch current reading from iSolarCloud")
         return
 
     await _upsert_reading(db, reading)
@@ -84,12 +84,12 @@ async def _upsert_reading(db: Database, reading: InverterReading) -> None:
 
 async def fetch_aemo_prices(db: Database, region: str) -> None:
     """Fetch current month's AEMO prices and upsert into aemo_trading_prices."""
-    today = datetime.now(tz=timezone.utc)
+    today = datetime.now(tz=UTC)
     try:
         prices = await fetch_month(year=today.year, month=today.month, region=region)
         await store_prices(prices, db)
     except Exception:
-        logger.error("Failed to fetch AEMO prices", exc_info=True)
+        logger.exception("Failed to fetch AEMO prices")
 
 
 async def _run() -> None:
@@ -117,7 +117,7 @@ async def _run() -> None:
         "interval",
         hours=24,
         args=[db, settings.aemo_region],
-        next_run_time=datetime.now(tz=timezone.utc),  # run immediately on startup
+        next_run_time=datetime.now(tz=UTC),  # run immediately on startup
     )
     scheduler.start()
     logger.info(

@@ -33,17 +33,17 @@ class SingleRateStrategy:
         aemo_prices: list[AemoPrice] | None = None,
     ) -> BillResult:
         flat_rate = next((r for r in rates if r.rate_type == "flat"), None)
-        cents_per_kwh = flat_rate.cents_per_kwh if flat_rate else Decimal("0")
+        cents_per_kwh = flat_rate.cents_per_kwh if flat_rate else Decimal(0)
 
-        import_kwh = Decimal("0")
-        export_kwh = Decimal("0")
+        import_kwh = Decimal(0)
+        export_kwh = Decimal(0)
         for reading in readings:
             import_kwh += reading_import_kwh(reading)
             export_kwh += reading_export_kwh(reading)
 
         sc = supply_charge_cents(plan, readings)
-        import_cents = import_kwh * (cents_per_kwh or Decimal("0"))
-        export_cents = export_kwh * (plan.feed_in_tariff_cents or Decimal("0"))
+        import_cents = import_kwh * (cents_per_kwh or Decimal(0))
+        export_cents = export_kwh * (plan.feed_in_tariff_cents or Decimal(0))
 
         period_breakdown: dict[str, PeriodResult] = {}
         if import_kwh > 0 or export_kwh > 0:
@@ -54,6 +54,6 @@ class SingleRateStrategy:
             supply_charge_cents=sc,
             import_charge_cents=import_cents,
             export_credit_cents=export_cents,
-            demand_charge_cents=Decimal("0"),
+            demand_charge_cents=Decimal(0),
             period_breakdown=period_breakdown,
         )

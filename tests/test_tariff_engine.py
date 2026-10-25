@@ -12,7 +12,6 @@ import pytest
 
 from candela.db import Database
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
@@ -211,8 +210,8 @@ async def test_compute_bill_no_readings_returns_supply_only() -> None:
         db,
     )
 
-    assert result.import_charge_cents == Decimal("0")
-    assert result.export_credit_cents == Decimal("0")
+    assert result.import_charge_cents == Decimal(0)
+    assert result.export_credit_cents == Decimal(0)
 
 
 async def test_compute_bill_tou() -> None:

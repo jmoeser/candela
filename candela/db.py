@@ -110,7 +110,7 @@ class Database:
             await self._sqlite_conn.execute("PRAGMA foreign_keys=ON")
             logger.debug("SQLite connection opened: %s", path)
         else:
-            import asyncpg  # noqa: PLC0415 — lazy import avoids hard dep in dev
+            import asyncpg  # lazy import avoids hard dep in dev
 
             self._pg_pool = await asyncpg.create_pool(_pg_dsn(self._url))
             logger.debug("asyncpg pool opened")

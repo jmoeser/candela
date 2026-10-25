@@ -48,6 +48,7 @@ async def test_sqlite_pool_acquire_and_execute() -> None:
 async def test_sqlite_execute_and_fetch() -> None:
     """Can create a table, insert a row, and fetch it back."""
     import os as _os
+
     from candela.db import Database
 
     db = Database("sqlite+aiosqlite:///./test_candela_crud.db")
@@ -73,6 +74,7 @@ async def test_sqlite_execute_and_fetch() -> None:
 async def test_sqlite_fetchval_no_rows() -> None:
     """fetchval returns None when no rows match."""
     import os as _os
+
     from candela.db import Database
 
     db = Database("sqlite+aiosqlite:///./test_candela_empty.db")

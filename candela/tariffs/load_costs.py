@@ -20,14 +20,11 @@ from collections import defaultdict
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from decimal import Decimal
-from typing import TYPE_CHECKING
 
 from candela.collector.aemo import AemoPrice
+from candela.db import Database
 from candela.tariffs.models import TariffPlan, TariffRate
 from candela.tariffs.strategies.base import match_rate
-
-if TYPE_CHECKING:
-    from candela.db import Database
 
 _WHOLESALE_ADDER = Decimal("18.0")  # c/kWh network / retail adder for wholesale plans
 
@@ -121,7 +118,7 @@ def compute_load_event_cost(
             return None
 
         kwh_per_slot = kwh / Decimal(str(len(slots)))
-        total_cents = Decimal("0")
+        total_cents = Decimal(0)
         # Precompute fallback for slots that don't match any rate window (mirrors
         # TOUStrategy which defaults to "offpeak" when match_rate returns None).
         rate_by_type = {r.rate_type: r for r in energy_rates}
@@ -196,10 +193,10 @@ async def load_costs_for_plan(
     plan_id: int,
     date_from: date,
     date_to: date,
-    db: "Database",
+    db: Database,
 ) -> list[LoadCostSummary]:
     """Fetch plan / rates / AEMO prices from *db* then compute load costs."""
-    from candela.tariffs.engine import fetch_plan, fetch_rates, fetch_aemo_prices
+    from candela.tariffs.engine import fetch_aemo_prices, fetch_plan, fetch_rates
 
     plan = await fetch_plan(plan_id, db)
     rates = await fetch_rates(plan_id, db)

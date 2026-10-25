@@ -53,7 +53,7 @@ class DemandStrategy:
 
         # --- TOU energy charges (same logic as TOUStrategy) ---
         kwh_by_period: dict[str, Decimal] = defaultdict(Decimal)
-        export_kwh = Decimal("0")
+        export_kwh = Decimal(0)
 
         for reading in readings:
             imp = reading_import_kwh(reading)
@@ -69,17 +69,17 @@ class DemandStrategy:
 
         rate_by_type: dict[str, TariffRate] = {r.rate_type: r for r in energy_rates}
         period_breakdown: dict[str, PeriodResult] = {}
-        total_import_cents = Decimal("0")
+        total_import_cents = Decimal(0)
 
         for period, kwh in kwh_by_period.items():
             rate = rate_by_type.get(period)
-            cpkwh = rate.cents_per_kwh if rate and rate.cents_per_kwh else Decimal("0")
+            cpkwh = rate.cents_per_kwh if rate and rate.cents_per_kwh else Decimal(0)
             cents = kwh * cpkwh
             period_breakdown[period] = PeriodResult(kwh=kwh, cents=cents)
             total_import_cents += cents
 
         # --- Demand charge ---
-        demand_charge = Decimal("0")
+        demand_charge = Decimal(0)
 
         if demand_rate and demand_rate.cents_per_kw:
             # Group readings in the demand window into 30-minute blocks
@@ -92,17 +92,17 @@ class DemandStrategy:
                 imp_kwh = (
                     Decimal(str(max(reading.grid_w, 0)))
                     * Decimal(str(_INTERVAL_HOURS))
-                    / Decimal("1000")
+                    / Decimal(1000)
                 )
                 key = block_start_for(reading.ts)
                 block_kwh[key] += imp_kwh
 
             if block_kwh:
                 # demand_kw = block_kwh * 2  (= kWh / 0.5 h)
-                max_demand_kw = max(kwh * Decimal("2") for kwh in block_kwh.values())
+                max_demand_kw = max(kwh * Decimal(2) for kwh in block_kwh.values())
                 demand_charge = max_demand_kw * demand_rate.cents_per_kw
 
-        export_cents = export_kwh * (plan.feed_in_tariff_cents or Decimal("0"))
+        export_cents = export_kwh * (plan.feed_in_tariff_cents or Decimal(0))
         sc = supply_charge_cents(plan, readings)
 
         return BillResult(
