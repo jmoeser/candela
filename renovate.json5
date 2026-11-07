@@ -7,7 +7,7 @@
     "helpers:pinGitHubActionDigestsToSemver",
     // Official regex managers for aqua.yaml (registry ref + packages).
     // Pin the preset; bump it via Renovate like any other dep.
-    "github>aquaproj/aqua-renovate-config#2.13.0",
+    "github>aquaproj/aqua-renovate-config#2.14.0",
     "docker:pinDigests",
   ],
 
