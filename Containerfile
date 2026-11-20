@@ -7,7 +7,7 @@ RUN python -c "import pip; v=tuple(int(p) for p in pip.__version__.split('.')[:3
 WORKDIR /app
 
 # Install uv. Tag and digest stay in lockstep with aqua.yaml and CI setup-uv.
-COPY --from=ghcr.io/astral-sh/uv:0.13.5@sha256:32a7bb39b496babbd997b0a39a4d66c126bdaf5661b302bf6f06abda8deca6ff /uv /usr/local/bin/uv
+COPY --from=ghcr.io/astral-sh/uv:0.13.9@sha256:d3b601f0c7b118bc1753febf7c41cc80981df678445e0254284eecf84db79a7d /uv /usr/local/bin/uv
 
 # Copy dependency manifests first for layer caching
 COPY pyproject.toml uv.lock ./
