@@ -1,4 +1,4 @@
-FROM python:3.14-slim@sha256:0514bc76712d64f8bb48adcb95b1ab0d88c69fee95d62fe4c18ee948bee9b1e1
+FROM python:3.14-slim@sha256:9aaa474097d094040649f2162a627c0049b408f52138d980916788d80f04802f
 
 # pip vendors its own certifi and ignores PIP_CERT. Fail the build when the
 # base image still ships a pip older than the emSign CA fix (26.2.2).
